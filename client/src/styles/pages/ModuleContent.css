@@ -1,0 +1,344 @@
+/* Professional Module Content Styles */
+.mr-article {
+  color: #c9d1d9;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.mr-article h1, .mr-article h2, .mr-article h3, .mr-article h4 {
+  color: #fff;
+  font-weight: 800;
+  margin-top: 2rem;
+  margin-bottom: 0.8rem;
+  line-height: 1.2;
+}
+
+.mr-article h1 { font-size: 1.8rem; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 0.5rem; }
+.mr-article h2 { font-size: 1.5rem; }
+.mr-article h3 { font-size: 1.2rem; }
+
+.mr-article p {
+  margin-top: 2rem;
+  margin-bottom: 1.2rem;
+  color: #94a3b8;
+}
+
+.mr-article strong {
+  color: #fff;
+  font-weight: 700;
+}
+
+/* Code & Terminal Blocks */
+.mr-code-block {
+  margin: 1.5rem 0;
+  background: #0d1117;
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+}
+
+.mr-code-header {
+  background: rgba(255,255,255,0.03);
+  padding: 8px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.mr-code-lang {
+  font-size: 0.75rem;
+  font-family: monospace;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.mr-terminal-container {
+  margin: 1.5rem 0;
+  background: #010409;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.mr-terminal-header {
+  background: #161b22;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  position: relative;
+}
+
+.mr-terminal-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.dot.red { background: #ff5f56; }
+.dot.yellow { background: #ffbd2e; }
+.dot.green { background: #27c93f; }
+
+.mr-terminal-title {
+  font-size: 0.75rem;
+  color: #8b949e;
+  font-family: 'Fira Code', monospace;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.mr-terminal {
+  background: #010409;
+  color: #e6edf3;
+  font-family: 'Fira Code', 'Courier New', monospace;
+  padding: 16px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.mr-terminal-prompt {
+  color: #7ee787;
+  font-weight: bold;
+}
+
+/* Info Boxes (Note, Tip, Warning) */
+.mr-box {
+  padding: 16px 20px;
+  border-radius: 8px;
+  margin: 1.5rem 0;
+  display: flex;
+  gap: 16px;
+}
+
+.mr-box-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.mr-box-content {
+  flex: 1;
+}
+
+.mr-box.tip {
+  background: rgba(34, 197, 94, 0.08);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  color: #86efac;
+}
+
+.mr-box.note {
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  color: #93c5fd;
+}
+
+.mr-box.warning {
+  background: rgba(249, 115, 22, 0.08);
+  border: 1px solid rgba(249, 115, 22, 0.2);
+  color: #fdba74;
+}
+
+/* Images & Figures */
+.mr-figure {
+  margin: 2rem 0;
+  text-align: center;
+}
+
+.mr-image {
+  max-width: 100%;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.1);
+  box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+}
+
+.mr-caption {
+  display: block;
+  margin-top: 12px;
+  font-size: 0.85rem;
+  color: #64748b;
+  font-style: italic;
+}
+
+/* Tables */
+.mr-table-wrap {
+  margin: 2rem 0;
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+
+.mr-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  text-align: left;
+}
+
+.mr-table th {
+  background: rgba(255,255,255,0.03);
+  padding: 12px 16px;
+  color: #fff;
+  font-weight: 700;
+  border-bottom: 2px solid rgba(255,255,255,0.1);
+}
+
+.mr-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  color: #a3b3c3;
+}
+
+.mr-table tr:last-child td {
+  border-bottom: none;
+}
+
+/* Highlights */
+.mr-highlight {
+  background: rgba(0, 240, 255, 0.1);
+  color: #00f0ff;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: monospace;
+}
+
+/* Nav Bar at bottom */
+.mr-footer-nav {
+  margin-top: 4rem;
+  padding-top: 2rem;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.mr-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid transparent;
+}
+
+.mr-btn-outline {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.1);
+  color: #94a3b8;
+}
+
+.mr-btn-outline:hover {
+  border-color: #fff;
+  color: #fff;
+}
+
+.mr-btn-primary {
+  background: #00f0ff;
+  color: #000;
+}
+
+.mr-btn-primary:hover {
+  opacity: 0.9;
+  transform: translateY(-2px);
+}
+
+.mr-btn-complete {
+  background: #22c55e;
+  color: #fff;
+}
+
+.mr-btn-quiz-submit {
+
+  margin-top: 2rem;
+}
+
+.mr-btn-complete:hover {
+  background: #16a34a;
+  transform: translateY(-2px);
+}
+
+/* Quiz Styles */
+.mr-quiz {
+  margin-top: 2rem;
+}
+
+.mr-question-text {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 1.5rem;
+}
+
+.mr-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mr-option {
+  text-align: left;
+  padding: 14px 20px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+}
+
+.mr-option:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.mr-option.selected {
+  background: rgba(0, 240, 255, 0.1);
+  border-color: #00f0ff;
+  color: #fff;
+}
+
+.mr-option.correct {
+  background: rgba(34, 197, 94, 0.1) !important;
+  border-color: #22c55e !important;
+  color: #fff !important;
+}
+
+.mr-option.wrong {
+  background: rgba(239, 68, 68, 0.1) !important;
+  border-color: #ef4444 !important;
+  color: #fff !important;
+}
+
+.mr-option.dim {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.mr-option span {
+  font-weight: 800;
+  margin-right: 12px;
+  color: #475569;
+}
+
+.mr-option.selected span {
+  color: #00f0ff;
+}

@@ -1,0 +1,212 @@
+.auth-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-primary);
+  background-image: 
+    radial-gradient(circle at 50% 50%, rgba(210, 43, 67, 0.05) 0%, transparent 50%),
+    linear-gradient(rgba(10, 10, 10, 0.9) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(10, 10, 10, 0.9) 1px, transparent 1px);
+  background-size: 100% 100%, 30px 30px, 30px 30px;
+  padding: 2rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.auth-nav {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  padding: 1.5rem 3rem;
+}
+
+.back-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  transition: color 0.3s ease;
+}
+
+.back-link:hover {
+  color: var(--accent-red);
+}
+
+.auth-card {
+  background: rgba(15, 15, 18, 0.7);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(210, 43, 67, 0.2);
+  border-radius: 12px;
+  padding: 3rem;
+  width: 100%;
+  max-width: 450px;
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(210, 43, 67, 0.05);
+  position: relative;
+  z-index: 1;
+}
+
+.auth-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.auth-title {
+  font-family: var(--font-glitch);
+  font-size: 2.5rem;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+  letter-spacing: 2px;
+  text-shadow: 2px 0 0 rgba(210, 43, 67, 0.5);
+}
+
+.auth-subtitle {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  font-family: var(--font-mono);
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  position: relative;
+}
+
+.form-label {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.form-icon {
+  color: var(--accent-red);
+}
+
+.form-input {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0.8rem 1rem;
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-family: var(--font-main);
+  transition: all 0.3s ease;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: var(--accent-red);
+  box-shadow: 0 0 10px rgba(210, 43, 67, 0.2);
+}
+
+.auth-error {
+  background: rgba(210, 43, 67, 0.1);
+  border-left: 3px solid var(--accent-red);
+  color: #ff8a8a;
+  padding: 0.8rem;
+  font-size: 0.85rem;
+  border-radius: 0 4px 4px 0;
+  margin-bottom: 1rem;
+}
+
+.auth-submit {
+  background: var(--accent-red);
+  color: var(--text-primary);
+  border: none;
+  padding: 1rem;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.auth-submit:hover {
+  background: #e6324b;
+  box-shadow: 0 0 15px rgba(210, 43, 67, 0.5);
+  transform: translateY(-2px);
+}
+
+.auth-submit:disabled {
+  background: #555;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.auth-footer {
+  text-align: center;
+  margin-top: 2rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.auth-link {
+  color: var(--accent-red);
+  text-decoration: none;
+  font-weight: 500;
+  transition: text-shadow 0.3s ease;
+}
+
+.auth-link:hover {
+  text-shadow: 0 0 8px rgba(210, 43, 67, 0.8);
+}
+
+/* ── Remember Me ── */
+.remember-me-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  cursor: pointer;
+  user-select: none;
+  width: fit-content;
+  transition: opacity 0.2s ease;
+  margin-top: -0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.remember-me-row:hover {
+  opacity: 0.8;
+}
+
+.remember-me-icon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.remember-me-label {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  flex: 1;
+}
+
+.remember-me-hint {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
