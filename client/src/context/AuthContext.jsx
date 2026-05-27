@@ -35,6 +35,7 @@ export const AuthProvider = ({ children }) => {
         const { res, data } = await authService.refresh();
         if (res.ok) {
           localStorage.setItem('token', data.token);
+          localStorage.setItem('hasSession', 'true');
           tokenExpiry = Date.now() + (data.expiresIn * 1000);
           localStorage.setItem('tokenExpiry', tokenExpiry.toString());
           setUser(prev => prev || data); // keep existing user or set new
@@ -42,6 +43,7 @@ export const AuthProvider = ({ children }) => {
           // Refresh failed (expired or invalid), log out
           localStorage.removeItem('token');
           localStorage.removeItem('tokenExpiry');
+          localStorage.removeItem('hasSession');
           setUser(null);
         }
       } catch (err) {
@@ -54,8 +56,16 @@ export const AuthProvider = ({ children }) => {
 
     const initializeAuth = async () => {
       const token = localStorage.getItem('token');
-      if (!token || (tokenExpiry && Date.now() > tokenExpiry - 60000)) {
-        // No token or expired, try to refresh via cookie
+      const hasSession = localStorage.getItem('hasSession');
+      
+      if (!token) {
+        if (hasSession === 'true') {
+          await doSilentRefresh();
+        } else {
+          setLoading(false);
+        }
+      } else if (tokenExpiry && Date.now() > tokenExpiry - 60000) {
+        // Token exists but expired, try to refresh via cookie
         await doSilentRefresh();
       } else {
         // Token exists and valid, fetch profile
@@ -126,6 +136,7 @@ export const AuthProvider = ({ children }) => {
       if (res.ok) {
         const expiry = Date.now() + (data.expiresIn * 1000);
         localStorage.setItem('token', data.token);
+        localStorage.setItem('hasSession', 'true');
         localStorage.setItem('tokenExpiry', expiry.toString());
         setUser(data);
         return { success: true };
@@ -157,6 +168,7 @@ export const AuthProvider = ({ children }) => {
     const data = await res.json();
     if (res.ok) {
       localStorage.setItem('token', data.token);
+      localStorage.setItem('hasSession', 'true');
       setUser(data);
       return { success: true };
     }
@@ -191,6 +203,7 @@ export const AuthProvider = ({ children }) => {
     }
     localStorage.removeItem('token');
     localStorage.removeItem('tokenExpiry');
+    localStorage.removeItem('hasSession');
     setUser(null);
     if (user?._id) {
       socket.emit('activity:leave', user._id);

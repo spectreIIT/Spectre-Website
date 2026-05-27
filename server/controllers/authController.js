@@ -44,13 +44,20 @@ export const registerUser = async (req, res) => {
 
     if (user) {
       // Send Email
-      await sendEmail({
-        email: user.email,
-        subject: 'Spectre CTF - Email Verification',
-        message: `Your verification code is: ${otp}. It will expire in 10 minutes.`,
-      });
-
-      res.status(201).json({ message: 'Registration successful. Please verify your email.' });
+      try {
+        await sendEmail({
+          email: user.email,
+          subject: 'Spectre CTF - Email Verification',
+          message: `Your verification code is: ${otp}. It will expire in 10 minutes.`,
+        });
+        res.status(201).json({ message: 'Registration successful. Please verify your email.' });
+      } catch (emailError) {
+        // Rollback user creation if email fails
+        await User.findByIdAndDelete(user._id);
+        return res.status(500).json({ 
+          message: 'SMTP Error: Failed to send email. If you are on Render Free Tier, outbound email ports may be blocked. Detailed Error: ' + emailError.message 
+        });
+      }
     } else {
       res.status(400).json({ message: 'Invalid user data' });
     }
