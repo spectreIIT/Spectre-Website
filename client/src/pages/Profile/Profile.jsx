@@ -6,7 +6,7 @@ import ActivityHeatmap from '../../components/profile/ActivityHeatmap';
 import { formatDate } from '../../utils/formatDate';
 import { maskEmail } from '../../utils/maskEmail';
 import { ROLE_LABELS } from '../../constants/roles';
-import '../../styles/pages/profile.css';
+import '../../styles/pages/Profile.css';
 
 function Profile() {
   const { user, forgotPassword } = useAuth();
