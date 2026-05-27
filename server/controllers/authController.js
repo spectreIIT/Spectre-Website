@@ -54,8 +54,8 @@ export const registerUser = async (req, res) => {
       } catch (emailError) {
         // Rollback user creation if email fails
         await User.findByIdAndDelete(user._id);
-        return res.status(500).json({ 
-          message: 'SMTP Error: Failed to send email. If you are on Render Free Tier, outbound email ports may be blocked. Detailed Error: ' + emailError.message 
+        return res.status(500).json({
+          message: emailError.message
         });
       }
     } else {
@@ -97,7 +97,7 @@ export const verifyEmail = async (req, res) => {
 
     const accessToken = generateAccessToken(user._id);
     const refreshToken = generateRefreshToken();
-    
+
     user.refreshTokens.push(refreshToken);
     await user.save();
 
@@ -154,7 +154,7 @@ export const loginUser = async (req, res) => {
     const { rememberMe } = req.body;
     const accessToken = generateAccessToken(user._id);
     const refreshToken = generateRefreshToken();
-    
+
     user.refreshTokens.push(refreshToken);
     await user.save();
 
@@ -245,7 +245,7 @@ export const forgotPassword = async (req, res) => {
 
 export const resetPassword = async (req, res) => {
   const { email, token, newPassword } = req.body;
-  
+
   try {
     const user = await User.findOne({ email });
     if (!user) {
