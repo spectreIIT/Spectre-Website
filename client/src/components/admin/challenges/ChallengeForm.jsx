@@ -63,8 +63,9 @@ export default function ChallengeForm({ challenge, onSave, onCancel, onDelete })
         });
         if (res.ok) {
           const data = await res.json();
-          // Filter out archived events if creating new, but keep if editing
-          setEventsList(data);
+          // Filter out archived events if creating new, but keep if editing and currently assigned
+          const filtered = data.filter(ev => ev.status !== 'archived' || ev._id === challenge?.eventId);
+          setEventsList(filtered);
         }
       } catch (err) {
         console.error('Failed to fetch events:', err);
@@ -366,7 +367,7 @@ export default function ChallengeForm({ challenge, onSave, onCancel, onDelete })
       <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.05)', marginBottom: '24px', flexWrap: 'wrap' }}>
         <button type="button" onClick={() => setActiveTab('basic')} style={tabItemStyle('basic')}>Basic Info</button>
         <button type="button" onClick={() => setActiveTab('scoring')} style={tabItemStyle('scoring')}>Scoring & Graph</button>
-        <button type="button" onClick={() => setActiveTab('content')} style={tabItemStyle('content')}>Markdown Editor</button>
+        <button type="button" onClick={() => setActiveTab('content')} style={tabItemStyle('content')}>Add Description</button>
         <button type="button" onClick={() => setActiveTab('flag')} style={tabItemStyle('flag')}>Flag config</button>
         <button type="button" onClick={() => setActiveTab('files')} style={tabItemStyle('files')}>Files & Resources</button>
         <button type="button" onClick={() => setActiveTab('hints')} style={tabItemStyle('hints')}>Hints ({formData.hints.length})</button>

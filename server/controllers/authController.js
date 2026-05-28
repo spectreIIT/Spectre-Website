@@ -122,10 +122,12 @@ export const verifyEmail = async (req, res) => {
 };
 
 export const loginUser = async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password } = req.body; // email can be username or email
 
   try {
-    const user = await User.findOne({ email });
+    const user = await User.findOne({
+      $or: [{ email: email }, { username: email }]
+    });
 
     if (!user) {
       return res.status(401).json({ message: 'Invalid email or password' });
@@ -142,11 +144,14 @@ export const loginUser = async (req, res) => {
 
     // Log the login activity
     try {
-      await ActivityLog.updateOne(
+      const logResult = await ActivityLog.updateOne(
         { userId: user._id, type: 'login', date: toUTCMidnightFn() },
         { $setOnInsert: { userId: user._id, type: 'login', date: toUTCMidnightFn() } },
         { upsert: true }
       );
+      if (logResult.upsertedCount > 0) {
+        user.score = (user.score || 0) + 2;
+      }
     } catch (err) {
       console.error('Error logging activity:', err);
     }
@@ -187,11 +192,15 @@ export const getMe = async (req, res) => {
     if (user) {
       // Log the daily visit
       try {
-        await ActivityLog.updateOne(
+        const logResult = await ActivityLog.updateOne(
           { userId: user._id, type: 'login', date: toUTCMidnightFn() },
           { $setOnInsert: { userId: user._id, type: 'login', date: toUTCMidnightFn() } },
           { upsert: true }
         );
+        if (logResult.upsertedCount > 0) {
+          user.score = (user.score || 0) + 2;
+          await user.save();
+        }
         const io = req.app.get('io');
         if (io) io.to(`activity:${user._id}`).emit('heatmap:update', { type: 'login' });
       } catch (err) {

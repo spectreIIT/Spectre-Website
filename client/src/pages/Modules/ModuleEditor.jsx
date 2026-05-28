@@ -38,7 +38,6 @@ export default function ModuleEditor() {
     description: '',
     banner: '',
     difficulty: 'Beginner',
-    category: 'General',
     status: 'draft',
     unlocked: true,
     pointsMode: 'module',
@@ -100,7 +99,6 @@ export default function ModuleEditor() {
             description: data.description || '',
             banner: data.banner || '',
             difficulty: data.difficulty || 'Beginner',
-            category: data.category || 'General',
             status: data.status || 'draft',
             unlocked: data.unlocked !== false,
             pointsMode: data.pointsMode || 'module',
@@ -343,6 +341,8 @@ export default function ModuleEditor() {
       }
     }
 
+    setShowSettingsModal(false);
+
     if (formData.status === 'active' && (!isEdit || formData.status !== 'active')) {
       setShowConfirmPublish(true);
       return;
@@ -561,7 +561,7 @@ export default function ModuleEditor() {
               
               <button
                 type="button"
-                onClick={handleSubmit}
+                onClick={() => setShowSettingsModal(true)}
                 disabled={saving}
                 style={{ 
                   display: 'flex', 
@@ -1075,26 +1075,13 @@ export default function ModuleEditor() {
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div>
-                  <label style={labelStyle}>Category Tag</label>
-                  <input 
-                    type="text" 
-                    name="category" 
-                    value={formData.category} 
-                    onChange={handleInputChange} 
-                    placeholder="e.g., Cryptography"
-                    style={inputStyle}
-                  />
-                </div>
-                <div>
-                  <label style={labelStyle}>Visibility Status</label>
-                  <select name="status" value={formData.status} onChange={handleInputChange} style={inputStyle}>
-                    <option value="draft">Draft</option>
-                    <option value="active">Active (Live)</option>
-                    <option value="hidden">Hidden (Admins only)</option>
-                  </select>
-                </div>
+              <div>
+                <label style={labelStyle}>Visibility Status</label>
+                <select name="status" value={formData.status} onChange={handleInputChange} style={inputStyle}>
+                  <option value="draft">Draft</option>
+                  <option value="active">Active (Live)</option>
+                  <option value="hidden">Hidden (Admins only)</option>
+                </select>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
@@ -1179,13 +1166,20 @@ export default function ModuleEditor() {
               </div>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '16px', marginTop: '8px' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '16px', marginTop: '8px', gap: '12px' }}>
               <button
                 type="button"
                 onClick={() => setShowSettingsModal(false)}
+                style={{ background: 'rgba(255,255,255,0.05)', color: '#94a3b8', border: '1px solid rgba(255,255,255,0.1)', padding: '10px 24px', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmit}
                 style={{ background: '#00f0ff', color: '#000', border: 'none', padding: '10px 24px', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}
               >
-                Apply Settings
+                Finalize & Save Module
               </button>
             </div>
           </div>

@@ -3,6 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { Calendar, Plus, Trash2, Edit, AlertCircle, ArrowLeft, Save, ShieldAlert, Sparkles, BookOpen, Target, Users, Zap, Terminal, Code, Award, Activity } from 'lucide-react';
 import API_URL from '../../constants/api';
+import { formatImageUrl } from '../../utils/formatImageUrl';
 import '../../components/admin/events/EventsManager.css';
 
 const ICON_OPTIONS = [
@@ -22,6 +23,8 @@ export default function EventEditor() {
   const [loading, setLoading] = useState(id ? true : false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  
+  const currentDate = new Date().toISOString().slice(0, 16);
   
   const [formData, setFormData] = useState({
     title: '',
@@ -97,10 +100,24 @@ export default function EventEditor() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    
+    // Validations
+    if (new Date(formData.startDate) >= new Date(formData.endDate)) {
+      setError('Event end date must be strictly after the start date.');
+      return;
+    }
+
+    if (formData.allowWriteups) {
+      if (new Date(formData.writeupsStart) <= new Date(formData.startDate)) {
+        setError('Writeup submission start time must be strictly after the event start time.');
+        return;
+      }
+    }
+
     setSaving(true);
     try {
       const token = localStorage.getItem('token');
-      const payload = { ...formData };
+      const payload = { ...formData, thumbnail: formatImageUrl(formData.thumbnail) };
       
       let res;
       if (id) {
@@ -184,7 +201,6 @@ export default function EventEditor() {
                 <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} required style={{ background: '#1a1d24', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '10px 14px', borderRadius: '6px' }}>
                   <option value="draft">Draft</option>
                   <option value="active">Active</option>
-                  <option value="archived">Archived</option>
                 </select>
               </div>
 
@@ -206,12 +222,12 @@ export default function EventEditor() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
               <div className="form-group">
                 <label>Event Start Date *</label>
-                <input type="datetime-local" value={formData.startDate} onChange={e => setFormData({...formData, startDate: e.target.value})} required style={{ background: '#1a1d24', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '10px 14px', borderRadius: '6px' }} />
+                <input type="datetime-local" min={!id ? currentDate : undefined} value={formData.startDate} onChange={e => setFormData({...formData, startDate: e.target.value})} required style={{ background: '#1a1d24', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '10px 14px', borderRadius: '6px' }} />
               </div>
 
               <div className="form-group">
                 <label>Event End Date *</label>
-                <input type="datetime-local" value={formData.endDate} onChange={e => setFormData({...formData, endDate: e.target.value})} required style={{ background: '#1a1d24', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '10px 14px', borderRadius: '6px' }} />
+                <input type="datetime-local" min={formData.startDate || (!id ? currentDate : undefined)} value={formData.endDate} onChange={e => setFormData({...formData, endDate: e.target.value})} required style={{ background: '#1a1d24', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '10px 14px', borderRadius: '6px' }} />
               </div>
 
               <div className="form-group" style={{ gridColumn: '1 / -1' }}>
@@ -234,13 +250,13 @@ export default function EventEditor() {
                   
                   <div className="form-group">
                     <label>Registration Start Date *</label>
-                    <input type="datetime-local" value={formData.registrationStart} onChange={e => setFormData({...formData, registrationStart: e.target.value})} required style={{ background: '#1a1d24', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '10px 14px', borderRadius: '6px' }} />
+                    <input type="datetime-local" min={!id ? currentDate : undefined} value={formData.registrationStart} onChange={e => setFormData({...formData, registrationStart: e.target.value})} required style={{ background: '#1a1d24', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '10px 14px', borderRadius: '6px' }} />
                   </div>
                   
                   {formData.registrationEndType === 'specific' && (
                     <div className="form-group">
                       <label>Registration End Date *</label>
-                      <input type="datetime-local" value={formData.registrationEndDate} onChange={e => setFormData({...formData, registrationEndDate: e.target.value})} required style={{ background: '#1a1d24', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '10px 14px', borderRadius: '6px' }} />
+                      <input type="datetime-local" min={formData.registrationStart || (!id ? currentDate : undefined)} value={formData.registrationEndDate} onChange={e => setFormData({...formData, registrationEndDate: e.target.value})} required style={{ background: '#1a1d24', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '10px 14px', borderRadius: '6px' }} />
                     </div>
                   )}
                 </div>
@@ -290,11 +306,11 @@ export default function EventEditor() {
                 <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', background: 'rgba(255,255,255,0.02)', padding: '24px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
                   <div className="form-group">
                     <label>Writeup Submissions Start Date *</label>
-                    <input type="datetime-local" value={formData.writeupsStart} onChange={e => setFormData({...formData, writeupsStart: e.target.value})} required={formData.allowWriteups} style={{ background: '#1a1d24', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '10px 14px', borderRadius: '6px' }} />
+                    <input type="datetime-local" min={formData.startDate || (!id ? currentDate : undefined)} value={formData.writeupsStart} onChange={e => setFormData({...formData, writeupsStart: e.target.value})} required={formData.allowWriteups} style={{ background: '#1a1d24', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '10px 14px', borderRadius: '6px' }} />
                   </div>
                   <div className="form-group">
                     <label>Writeup Submissions End Date *</label>
-                    <input type="datetime-local" value={formData.writeupsEnd} onChange={e => setFormData({...formData, writeupsEnd: e.target.value})} required={formData.allowWriteups} style={{ background: '#1a1d24', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '10px 14px', borderRadius: '6px' }} />
+                    <input type="datetime-local" min={formData.writeupsStart || (!id ? currentDate : undefined)} value={formData.writeupsEnd} onChange={e => setFormData({...formData, writeupsEnd: e.target.value})} required={formData.allowWriteups} style={{ background: '#1a1d24', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '10px 14px', borderRadius: '6px' }} />
                   </div>
                 </div>
               )}

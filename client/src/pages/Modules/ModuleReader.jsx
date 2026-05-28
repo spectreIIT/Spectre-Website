@@ -268,9 +268,9 @@ export default function ModuleReader() {
         method: 'POST',
         headers: { Authorization: `Bearer ${token()}` }
       });
-      navigate(mod?.eventId ? `/events/${mod.eventId}/arena/modules` : '/modules');
+      navigate(mod?.eventId ? `/events/${mod.eventId}/arena/modules` : `/modules?moduleId=${moduleId}`);
     } catch (_) {
-      navigate(mod?.eventId ? `/events/${mod.eventId}/arena/modules` : '/modules');
+      navigate(mod?.eventId ? `/events/${mod.eventId}/arena/modules` : `/modules?moduleId=${moduleId}`);
     } finally {
       setSaving(false);
     }
@@ -297,7 +297,7 @@ export default function ModuleReader() {
     <div className="mr-layout">
       {/* Top Navbar */}
       <header className="mr-topnav">
-        <button className="mr-back" onClick={() => navigate(mod?.eventId ? `/events/${mod.eventId}/arena/modules` : '/modules')}>
+        <button className="mr-back" onClick={() => navigate(mod?.eventId ? `/events/${mod.eventId}/arena/modules` : `/modules?moduleId=${moduleId}`)}>
           <div className="logo-img-wrapper">
             <img src="/Illustration.png" alt="Spectre Logo" className="logo-img" />
           </div>

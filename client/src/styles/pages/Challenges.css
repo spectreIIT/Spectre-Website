@@ -217,12 +217,12 @@
   justify-content: center;
   align-items: center;
   flex: 1;
-  min-height: 100px;
+  min-height: 120px;
   margin-bottom: 20px;
 }
 .ch-image-container img {
-  max-width: 95px;
-  max-height: 95px;
+  max-width: 130px;
+  max-height: 130px;
   object-fit: contain;
   opacity: 0.9;
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
