@@ -53,15 +53,15 @@ const ProgressionGraph = ({ data }) => {
   const chartData = useMemo(() => {
     if (!data || data.length === 0) return [];
 
-    // Filter to only include users with at least one solve or completed module
-    const activeUsers = data.filter(u => 
-      (u.solves || []).length > 0 || (u.completedModules || []).length > 0
-    );
+    // Filter to only include users with at least one point
+    const activeUsers = data.filter(u => u.score > 0);
     if (activeUsers.length === 0) return [];
 
     const allEvents = [];
     activeUsers.forEach(user => {
       const userContributions = [];
+
+      let calculatedPoints = 0;
 
       // Build progression purely from verifiable track records (solves and modules)
       (user.solves || []).forEach(solve => {
@@ -69,6 +69,7 @@ const ProgressionGraph = ({ data }) => {
         const time = new Date(solve.timestamp || solve.solvedAt || 0).getTime();
         if (!isNaN(time) && points > 0) {
           userContributions.push({ time, points });
+          calculatedPoints += points;
         }
       });
 
@@ -77,8 +78,25 @@ const ProgressionGraph = ({ data }) => {
         const time = new Date(mod.timestamp || 0).getTime();
         if (!isNaN(time) && points > 0) {
           userContributions.push({ time, points });
+          calculatedPoints += points;
         }
       });
+
+      (user.writeups || []).forEach(w => {
+        const points = w.points || 0;
+        const time = new Date(w.timestamp || 0).getTime();
+        if (!isNaN(time) && points > 0) {
+          userContributions.push({ time, points });
+          calculatedPoints += points;
+        }
+      });
+
+      // Factor in login points or unstructured score differences
+      const missingPoints = (user.score || 0) - calculatedPoints;
+      if (missingPoints > 0) {
+        const baseTime = user.createdAt ? new Date(user.createdAt).getTime() : Date.now() - 86400000;
+        userContributions.push({ time: baseTime, points: missingPoints });
+      }
 
       // Sort chronological contributions for this user
       userContributions.sort((a, b) => a.time - b.time);
@@ -159,7 +177,7 @@ const ProgressionGraph = ({ data }) => {
   ];
 
   const activeUsersForLegend = useMemo(() => 
-    data.filter(u => (u.solves || []).length > 0 || (u.completedModules || []).length > 0).slice(0, 10),
+    data.filter(u => u.score > 0).slice(0, 10),
   [data]);
 
   if (!data || data.length === 0 || chartData.length === 0) {
@@ -167,7 +185,7 @@ const ProgressionGraph = ({ data }) => {
       <div className="progression-graph-container">
         <div className="graph-placeholder">
           <p>No infiltration data available.</p>
-          <span style={{ fontSize: '0.8rem', opacity: 0.5 }}>Only active operatives with confirmed solves are displayed here.</span>
+          <span style={{ fontSize: '0.8rem', opacity: 0.5 }}>Only active operatives with points are displayed here.</span>
         </div>
       </div>
     );

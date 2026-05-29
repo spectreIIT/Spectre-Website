@@ -12,6 +12,8 @@ export default function EventSettings() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
+  const currentDate = new Date().toISOString().slice(0, 16);
+
   useEffect(() => {
     const toLocalISOString = (dateString) => {
       if (!dateString) return '';
@@ -52,6 +54,21 @@ export default function EventSettings() {
     setSaving(true);
     setError('');
     setMessage('');
+    
+    // Validations
+    if (new Date(formData.startDate) >= new Date(formData.endDate)) {
+      setError('Event end date must be strictly after the start date.');
+      setSaving(false);
+      return;
+    }
+
+    if (formData.registrationEnabled) {
+      if (new Date(formData.registrationStart) <= new Date(formData.startDate)) {
+        setError('Registration start date must be strictly after the event start date.');
+        setSaving(false);
+        return;
+      }
+    }
     
     try {
       const token = localStorage.getItem('token');
@@ -126,12 +143,12 @@ export default function EventSettings() {
 
             <div className="form-group">
               <label>Start Date *</label>
-              <input type="datetime-local" value={formData.startDate} onChange={e => setFormData({...formData, startDate: e.target.value})} required style={{ background: '#090a0f' }} />
+              <input type="datetime-local" min={currentDate} value={formData.startDate} onChange={e => setFormData({...formData, startDate: e.target.value})} required style={{ background: '#090a0f' }} />
             </div>
 
             <div className="form-group">
               <label>End Date *</label>
-              <input type="datetime-local" value={formData.endDate} onChange={e => setFormData({...formData, endDate: e.target.value})} required style={{ background: '#090a0f' }} />
+              <input type="datetime-local" min={formData.startDate || currentDate} value={formData.endDate} onChange={e => setFormData({...formData, endDate: e.target.value})} required style={{ background: '#090a0f' }} />
             </div>
 
             <div className="form-group checkbox-group" style={{ background: '#090a0f', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
@@ -160,12 +177,12 @@ export default function EventSettings() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', padding: '0 12px' }}>
                   <div className="form-group">
                     <label>Registration Start Date *</label>
-                    <input type="datetime-local" value={formData.registrationStart} onChange={e => setFormData({...formData, registrationStart: e.target.value})} required style={{ background: '#090a0f' }} />
+                    <input type="datetime-local" min={formData.startDate || currentDate} value={formData.registrationStart} onChange={e => setFormData({...formData, registrationStart: e.target.value})} required style={{ background: '#090a0f' }} />
                   </div>
                   {formData.registrationEndType === 'specific' && (
                     <div className="form-group">
                       <label>Registration End Date *</label>
-                      <input type="datetime-local" value={formData.registrationEndDate} onChange={e => setFormData({...formData, registrationEndDate: e.target.value})} required style={{ background: '#090a0f' }} />
+                      <input type="datetime-local" min={formData.registrationStart || currentDate} value={formData.registrationEndDate} onChange={e => setFormData({...formData, registrationEndDate: e.target.value})} required style={{ background: '#090a0f' }} />
                     </div>
                   )}
                 </div>

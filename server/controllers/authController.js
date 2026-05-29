@@ -93,6 +93,21 @@ export const verifyEmail = async (req, res) => {
     user.isVerified = true;
     user.verificationOtp = undefined;
     user.otpExpires = undefined;
+
+    // Log the initial login activity and award 2 points
+    try {
+      const logResult = await ActivityLog.updateOne(
+        { userId: user._id, type: 'login', date: toUTCMidnightFn() },
+        { $setOnInsert: { userId: user._id, type: 'login', date: toUTCMidnightFn() } },
+        { upsert: true }
+      );
+      if (logResult.upsertedCount > 0) {
+        user.score = (user.score || 0) + 2;
+      }
+    } catch (err) {
+      console.error('Error logging activity:', err);
+    }
+
     await user.save();
 
     const accessToken = generateAccessToken(user._id);

@@ -46,6 +46,13 @@ router.get('/leaderboard', async (req, res) => {
       modulePointsMap[m._id.toString()] = m.points || 100;
     });
 
+    // Fetch approved writeups for these users to get their exact writeup points
+    const approvedWriteups = await Writeup.find({
+      author: { $in: userIds },
+      status: { $in: ['approved', 'Approved', 'Published', 'published', 'published'] },
+      pointsAwarded: { $gt: 0 }
+    }).lean();
+
     // Fetch history
     const historyLogs = await UserXpHistory.find({ userId: { $in: userIds } }).sort({ timestamp: 1 }).lean();
 
@@ -75,9 +82,17 @@ router.get('/leaderboard', async (req, res) => {
       const userObj = u.toObject();
       userObj.solves = globalSolves;
 
+      const userWriteups = approvedWriteups.filter(w => 
+        (w.author || w.authorId).toString() === u._id.toString()
+      ).map(w => ({
+        points: w.pointsAwarded,
+        timestamp: w.reviewedAt || w.publishedAt || w.updatedAt || w.createdAt
+      }));
+
       return {
         ...userObj,
         completedModules,
+        writeups: userWriteups,
         history
       };
     });
