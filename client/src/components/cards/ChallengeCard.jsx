@@ -7,13 +7,13 @@ const ChallengeCard = ({ chal, onClick }) => {
   const getCategoryImage = (category) => {
     if (!category) return '/Illustration.png';
     const cat = category.toLowerCase();
-    if (cat.includes('web')) return '/images/challenges/Web.jpeg';
-    if (cat.includes('forensic')) return '/images/challenges/Forensics.jpeg';
+    if (cat.includes('web')) return '/images/challenges/Web.jpg';
+    if (cat.includes('forensic')) return '/images/challenges/Forensics.jpg';
     if (cat.includes('osint')) return '/images/challenges/OSINT.jpeg';
-    if (cat.includes('reverse') || cat.includes('reversing')) return '/images/challenges/Reverse.jpeg';
-    if (cat.includes('crypto')) return '/images/challenges/Crypto.jpeg';
-    if (cat.includes('binary') || cat.includes('pwn')) return '/images/challenges/Binary.jpeg';
-    if (cat.includes('misc')) return '/images/challenges/Misc.jpeg';
+    if (cat.includes('reverse') || cat.includes('reversing')) return '/images/challenges/Reverse.jpg';
+    if (cat.includes('crypto')) return '/images/challenges/Crypto.jpg';
+    if (cat.includes('binary') || cat.includes('pwn')) return '/images/challenges/Binary.jpg';
+    if (cat.includes('misc')) return '/images/challenges/Misc.jpg';
     return '/Illustration.png';
   };
 
