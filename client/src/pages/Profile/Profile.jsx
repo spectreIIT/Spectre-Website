@@ -5,6 +5,7 @@ import { authService } from '../../services/authService';
 import ActivityHeatmap from '../../components/profile/ActivityHeatmap';
 import { formatDate } from '../../utils/formatDate';
 import { maskEmail } from '../../utils/maskEmail';
+import { formatImageUrl } from '../../utils/formatImageUrl';
 import { ROLE_LABELS } from '../../constants/roles';
 import '../../styles/pages/Profile.css';
 
@@ -50,7 +51,9 @@ function Profile() {
     try {
       const payload = {};
       if (username !== profile?.username) payload.username = username;
-      if (avatarUrl !== profile?.avatarUrl) payload.avatarUrl = avatarUrl;
+      
+      const formattedAvatar = formatImageUrl(avatarUrl);
+      if (formattedAvatar !== profile?.avatarUrl) payload.avatarUrl = formattedAvatar;
 
       if (Object.keys(payload).length === 0) {
         setLoading(false);

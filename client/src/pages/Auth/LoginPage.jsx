@@ -1,6 +1,6 @@
 import { useState, useContext, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Mail, Lock, LogIn, CheckSquare, Square } from 'lucide-react';
+import { ArrowLeft, Mail, Lock, LogIn, CheckSquare, Square, User } from 'lucide-react';
 import AuthContext from '../../context/AuthContext';
 import '../../styles/pages/LoginPage.css';
 
@@ -59,15 +59,15 @@ const LoginPage = () => {
         <form className="auth-form" onSubmit={handleSubmit}>
           <div className="form-group">
             <label className="form-label">
-              <Mail size={16} className="form-icon" /> EMAIL ADDRESS
+              <User size={16} className="form-icon" /> EMAIL OR USERNAME
             </label>
             <input
-              type="email"
+              type="text"
               className="form-input"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              placeholder="agent@spectre.ctf"
+              placeholder="agent@spectre.ctf or Agent007"
             />
           </div>
 

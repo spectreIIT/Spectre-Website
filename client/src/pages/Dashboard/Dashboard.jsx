@@ -12,13 +12,7 @@ import ChallengeCard from '../../components/cards/ChallengeCard';
 import DashboardModuleCard from '../../components/cards/DashboardModuleCard';
 import '../../styles/pages/Dashboard.css';
 
-const STATIC_MODULES = [
-  { id: '1', title: 'Web Security Fundamentals', icon: '🌐', color: '#00f0ff', sections: 3 },
-  { id: '2', title: 'Cryptography & Encoding', icon: '🔐', color: '#b026ff', sections: 3 },
-  { id: '3', title: 'Linux & Command Line', icon: '🐧', color: '#22c55e', sections: 3 },
-  { id: '4', title: 'Reverse Engineering', icon: '⚙️', color: '#f59e0b', sections: 2 },
-  { id: '5', title: 'Network Analysis', icon: '📡', color: '#ef4444', sections: 2 },
-];
+
 
 function Dashboard() {
   const navigate = useNavigate();

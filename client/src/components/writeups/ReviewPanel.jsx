@@ -252,8 +252,6 @@ function ReviewPanel({ eventId = null }) {
                     {w.featured && <Star size={12} color="#fbbf24" fill="#fbbf24" />}
                     <a
                       href={eventId ? `/${user?.role === 'Admin' ? 'admin' : 'supervisor'}/events/${eventId}/writeups/${w._id}` : `/writeups/${w._id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
                       style={{
                         color: '#00f0ff',
                         textDecoration: 'none',

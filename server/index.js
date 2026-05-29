@@ -25,8 +25,9 @@ const PORT = process.env.PORT || 5000;
 // ── Socket.io ─────────────────────────────────────────────────────────────────
 const io = new SocketIOServer(httpServer, {
   cors: {
-    origin: '*',
+    origin: process.env.CLIENT_URL,
     methods: ['GET', 'POST'],
+    credentials: true,
   },
 });
 

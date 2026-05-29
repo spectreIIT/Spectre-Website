@@ -47,6 +47,17 @@ router.get('/', protect, async (req, res) => {
   }
 });
 
+// ── GET /api/events/active ───────────────────────────────────────────────────
+router.get('/active', protect, async (req, res) => {
+  try {
+    const event = await Event.findOne({ status: 'active' }).populate('createdBy', 'username');
+    if (!event) return res.status(404).json({ message: 'No active event found' });
+    res.json(event);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error fetching active event' });
+  }
+});
+
 // ── GET /api/events/:id ──────────────────────────────────────────────────────
 router.get('/:id', protect, async (req, res) => {
   try {

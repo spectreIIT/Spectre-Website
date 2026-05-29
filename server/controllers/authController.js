@@ -44,13 +44,20 @@ export const registerUser = async (req, res) => {
 
     if (user) {
       // Send Email
-      await sendEmail({
-        email: user.email,
-        subject: 'Spectre CTF - Email Verification',
-        message: `Your verification code is: ${otp}. It will expire in 10 minutes.`,
-      });
-
-      res.status(201).json({ message: 'Registration successful. Please verify your email.' });
+      try {
+        await sendEmail({
+          email: user.email,
+          subject: 'Spectre CTF - Email Verification',
+          message: `Your verification code is: ${otp}. It will expire in 10 minutes.`,
+        });
+        res.status(201).json({ message: 'Registration successful. Please verify your email.' });
+      } catch (emailError) {
+        // Rollback user creation if email fails
+        await User.findByIdAndDelete(user._id);
+        return res.status(500).json({
+          message: emailError.message
+        });
+      }
     } else {
       res.status(400).json({ message: 'Invalid user data' });
     }
@@ -90,14 +97,14 @@ export const verifyEmail = async (req, res) => {
 
     const accessToken = generateAccessToken(user._id);
     const refreshToken = generateRefreshToken();
-    
+
     user.refreshTokens.push(refreshToken);
     await user.save();
 
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: true,
+      sameSite: 'none',
       maxAge: 24 * 60 * 60 * 1000 // 1 day default
     });
 
@@ -115,10 +122,12 @@ export const verifyEmail = async (req, res) => {
 };
 
 export const loginUser = async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password } = req.body; // email can be username or email
 
   try {
-    const user = await User.findOne({ email });
+    const user = await User.findOne({
+      $or: [{ email: email }, { username: email }]
+    });
 
     if (!user) {
       return res.status(401).json({ message: 'Invalid email or password' });
@@ -135,11 +144,14 @@ export const loginUser = async (req, res) => {
 
     // Log the login activity
     try {
-      await ActivityLog.updateOne(
+      const logResult = await ActivityLog.updateOne(
         { userId: user._id, type: 'login', date: toUTCMidnightFn() },
         { $setOnInsert: { userId: user._id, type: 'login', date: toUTCMidnightFn() } },
         { upsert: true }
       );
+      if (logResult.upsertedCount > 0) {
+        user.score = (user.score || 0) + 2;
+      }
     } catch (err) {
       console.error('Error logging activity:', err);
     }
@@ -147,7 +159,7 @@ export const loginUser = async (req, res) => {
     const { rememberMe } = req.body;
     const accessToken = generateAccessToken(user._id);
     const refreshToken = generateRefreshToken();
-    
+
     user.refreshTokens.push(refreshToken);
     await user.save();
 
@@ -155,8 +167,8 @@ export const loginUser = async (req, res) => {
 
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: true,
+      sameSite: 'none',
       maxAge,
     });
 
@@ -180,11 +192,15 @@ export const getMe = async (req, res) => {
     if (user) {
       // Log the daily visit
       try {
-        await ActivityLog.updateOne(
+        const logResult = await ActivityLog.updateOne(
           { userId: user._id, type: 'login', date: toUTCMidnightFn() },
           { $setOnInsert: { userId: user._id, type: 'login', date: toUTCMidnightFn() } },
           { upsert: true }
         );
+        if (logResult.upsertedCount > 0) {
+          user.score = (user.score || 0) + 2;
+          await user.save();
+        }
         const io = req.app.get('io');
         if (io) io.to(`activity:${user._id}`).emit('heatmap:update', { type: 'login' });
       } catch (err) {
@@ -238,7 +254,7 @@ export const forgotPassword = async (req, res) => {
 
 export const resetPassword = async (req, res) => {
   const { email, token, newPassword } = req.body;
-  
+
   try {
     const user = await User.findOne({ email });
     if (!user) {
@@ -306,8 +322,8 @@ export const refreshToken = async (req, res) => {
 
     res.cookie('refreshToken', newRefreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: true,
+      sameSite: 'none',
       maxAge
     });
 

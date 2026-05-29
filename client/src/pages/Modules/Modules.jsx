@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { BookOpen, ChevronLeft, CheckCircle, Brain, ArrowRight, Loader2, Eye, AlertTriangle, Award, Lock } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import ModuleCard from '../../components/cards/ModuleCard';
@@ -8,89 +8,13 @@ import '../../styles/pages/Modules.css';
 
 const API = (import.meta.env.VITE_API_URL || "http://localhost:5000");
 
-// Static modules formatted under the new pages + challenge system
-const STATIC_MODULES = [
-  {
-    id: '1', _id: '1', isStatic: true,
-    title: 'How HTTP Works', icon: '🌐', color: '#3b82f6',
-    description: 'Learn the core concepts of web application security, from HTTP requests to cookies and sessions.',
-    unlocked: true, prerequisites: [], points: 100,
-    pages: [
-      { id: 'http-1', title: 'HTTP Protocol Basics', content: '# HTTP Protocol Basics\n\nHTTP (Hypertext Transfer Protocol) is an application-layer protocol for transmitting hypermedia documents...' },
-      { id: 'http-2', title: 'Cookies & Sessions', content: '# Cookies & Sessions\n\nSince HTTP is stateless, servers use cookies and sessions to store user context...' },
-    ],
-    challenge: {
-      title: 'HTTP Header Analysis',
-      description: '# HTTP Header Analysis Lab\n\nInspect the request headers and identify the authorization token.',
-      flag: 'SPECTRE{http_headers_analysed}'
-    }
-  },
-  {
-    id: '2', _id: '2', isStatic: true,
-    title: 'Cryptography & Encoding', icon: '🔐', color: '#b026ff',
-    description: 'Understand encoding schemes, hashing algorithms, and classical/modern ciphers.',
-    unlocked: true, prerequisites: [], points: 100,
-    pages: [
-      { id: 'crypto-1', title: 'Encoding vs Hashing vs Encryption', content: '# Encoding vs Hashing vs Encryption\n\nThese terms are often confused but serve completely different security objectives...' },
-      { id: 'crypto-2', title: 'Classical Ciphers', content: '# Classical Ciphers\n\nExplore Caesar cipher, ROT13, and simple XOR logic...' }
-    ],
-    challenge: {
-      title: 'Deciphering ROT13',
-      description: '# Deciphering ROT13 Lab\n\nDecode the ciphertext: `FCFPGER{pelcgb_onfvpf_fbyirq}`',
-      flag: 'SPECTRE{crypto_basics_solved}'
-    }
-  },
-  {
-    id: '3', _id: '3', isStatic: true,
-    title: 'Linux & Command Line', icon: '🐧', color: '#22c55e',
-    description: 'Master the Linux terminal — essential for every CTF challenge and real-world pentest.',
-    unlocked: true, prerequisites: [], points: 100,
-    pages: [
-      { id: 'linux-1', title: 'Essential Commands', content: '# Essential Commands\n\nLearn navigation commands like `ls`, `cd`, `pwd`, and file viewers like `cat`...' },
-      { id: 'linux-2', title: 'File Permissions & SUID', content: '# File Permissions & SUID\n\nUnderstand Linux read/write/execute permissions and privilege escalation basics...' }
-    ],
-    challenge: {
-      title: 'SUID Infiltration',
-      description: '# SUID Infiltration Lab\n\nFind files with SUID bit set and locate the flag.',
-      flag: 'SPECTRE{suid_privesc_complete}'
-    }
-  },
-  {
-    id: '4', _id: '4', isStatic: true,
-    title: 'Reverse Engineering', icon: '⚙️', color: '#f59e0b',
-    description: 'Analyze binaries, understand assembly, and uncover hidden logic without source code.',
-    unlocked: false, prerequisites: ['1'], points: 100,
-    pages: [
-      { id: 're-1', title: 'Introduction to Binaries & Assembly', content: '# Introduction to Binaries & Assembly\n\nLearn how binaries are compiled and how machine instructions translate to assembly...' }
-    ],
-    challenge: {
-      title: 'Analyzing GDB',
-      description: '# Analyzing GDB Lab\n\nDebug the provided binary to read the flag from memory.',
-      flag: 'SPECTRE{gdb_memory_analysis}'
-    }
-  },
-  {
-    id: '5', _id: '5', isStatic: true,
-    title: 'Network Analysis', icon: '📡', color: '#ef4444',
-    description: 'Capture and analyze network traffic to find hidden data and understand protocols.',
-    unlocked: false, prerequisites: ['1', '3'], points: 100,
-    pages: [
-      { id: 'net-1', title: 'Wireshark Basics & Packet Capture', content: '# Wireshark Basics & Packet Capture\n\nLearn how to capture packets and filter protocols like DNS, TCP, and HTTP...' }
-    ],
-    challenge: {
-      title: 'Packet Infiltration',
-      description: '# Packet Infiltration Lab\n\nExamine the `.pcap` capture file to intercept secret messages.',
-      flag: 'SPECTRE{wireshark_pcap_sniff}'
-    }
-  },
-];
 
 export default function Modules() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isPrivileged = user?.role === 'Admin' || user?.role === 'Supervisor';
 
-  const [activeModule, setActiveModule] = useState(null);
+  const [searchParams, setSearchParams] = useSearchParams();
   const [dbModules, setDbModules] = useState([]);
   const [progressMap, setProgressMap] = useState({});
   const [loading, setLoading] = useState(true);
@@ -149,14 +73,13 @@ export default function Modules() {
       } else if (mod.prerequisites?.length > 0) {
         prerequisitesMet = mod.prerequisites.every(pre => {
           const preId = typeof pre === 'string' ? pre : (pre._id || pre.id);
-          const preStatic = STATIC_MODULES.find(m => m.id === preId);
           const pProg = progressMap[String(preId)];
           if (pProg?.isCompleted) return true;
           if (!pProg) return false;
           
           // Fallback if not fully completed in progress doc: check if all pages in the pre module are finished
           const pDone = new Set(pProg.completedSections || []);
-          const targetPages = preStatic ? preStatic.pages : (dbModules.find(m => String(m._id || m.id) === String(preId))?.pages || []);
+          const targetPages = dbModules.find(m => String(m._id || m.id) === String(preId))?.pages || [];
           return targetPages.length > 0 && targetPages.every(p => pDone.has(p.id));
         });
         accessGranted = prerequisitesMet;
@@ -174,8 +97,6 @@ export default function Modules() {
     };
   };
 
-  const staticEnriched = STATIC_MODULES.map(mod => enrichModuleProgress(mod));
-
   const { searchQuery, setSearchQuery } = useSearch();
 
   // Pagination states
@@ -187,7 +108,7 @@ export default function Modules() {
     setCurrentPage(1);
   }, [searchQuery]);
 
-  const allModulesRaw = [...dbModules.map(mod => enrichModuleProgress(mod)), ...staticEnriched];
+  const allModulesRaw = [...dbModules.map(mod => enrichModuleProgress(mod))];
   // Deduplicate by title to prevent static/DB overlaps
   const seenTitles = new Set();
   const allModules = [];
@@ -197,6 +118,9 @@ export default function Modules() {
       seenTitles.add(mod.title);
     }
   }
+
+  const activeModuleId = searchParams.get('moduleId');
+  const activeModule = activeModuleId ? allModules.find(m => String(m._id || m.id) === activeModuleId) : null;
 
   // Filter by Search and Role Visibility
   const filteredModules = allModules.filter(mod => {
@@ -210,8 +134,7 @@ export default function Modules() {
     const search = searchQuery.toLowerCase();
     return (
       mod.title.toLowerCase().includes(search) ||
-      (mod.description && mod.description.toLowerCase().includes(search)) ||
-      (mod.category && mod.category.toLowerCase().includes(search))
+      (mod.description && mod.description.toLowerCase().includes(search))
     );
   });
 
@@ -241,7 +164,7 @@ export default function Modules() {
     if (!mod.prerequisites?.length) return null;
     const names = mod.prerequisites.map(pre => {
       if (typeof pre === 'string') {
-        return STATIC_MODULES.find(m => m.id === pre)?.title || 'Unknown';
+        return dbModules.find(m => String(m._id || m.id) === pre)?.title || 'Unknown';
       }
       return pre.title || 'Unknown';
     });
@@ -297,7 +220,7 @@ export default function Modules() {
                     isPrivileged={isPrivileged} 
                     prereqLabel={prereqLabel} 
                     pct={pct} 
-                    onClick={setActiveModule} 
+                    onClick={(mod) => setSearchParams({ moduleId: mod._id || mod.id })} 
                   />
                 );
               })
@@ -344,7 +267,7 @@ export default function Modules() {
       ) : (
         /* Module Detail View */
         <div className="module-detail">
-          <button className="back-btn" onClick={() => setActiveModule(null)}>
+          <button className="back-btn" onClick={() => setSearchParams({})}>
             <ChevronLeft size={16} /> Back to Learning Paths
           </button>
 
@@ -357,11 +280,6 @@ export default function Modules() {
                 <span style={{ fontSize: '0.85rem', color: '#00f0ff', background: 'rgba(0,240,255,0.1)', border: '1px solid rgba(0,240,255,0.25)', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>
                   {activeModule.pointsMode === 'page' ? `${activeModule.earnedPoints || 0}/${activeModule.points || 0}` : (activeModule.points || 100)} PTS
                 </span>
-                {activeModule.category && (
-                  <span style={{ fontSize: '0.78rem', color: '#94a3b8', background: 'rgba(255,255,255,0.04)', padding: '2px 8px', borderRadius: '4px' }}>
-                    {activeModule.category}
-                  </span>
-                )}
               </div>
               
               {/* Module-level progress */}

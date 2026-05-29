@@ -8,6 +8,7 @@ import ModuleProgress from '../models/ModuleProgress.js';
 import UserXpHistory from '../models/UserXpHistory.js';
 import { protect } from '../middleware/authMiddleware.js';
 import { recalculateUserScore } from '../utils/scoreHelper.js';
+import sendEmail from '../utils/sendEmail.js';
 
 const router = express.Router();
 
@@ -244,6 +245,38 @@ router.put('/profile', protect, async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error updating profile' });
+  }
+});
+
+// @route   POST /api/users/report-bug
+// @desc    Report a bug to admins
+// @access  Private
+router.post('/report-bug', protect, async (req, res) => {
+  try {
+    const { description } = req.body;
+    if (!description) return res.status(400).json({ message: 'Description is required' });
+
+    const admins = await User.find({ role: 'Admin' });
+    const adminEmails = admins.map(a => a.email);
+
+    if (adminEmails.length === 0) {
+       return res.status(500).json({ message: 'No admins found to receive the report' });
+    }
+
+    const message = `Bug Report from User: ${req.user.username} (Email: ${req.user.email})<br><br>Description:<br>${description.replace(/\n/g, '<br>')}`;
+
+    for (const email of adminEmails) {
+      await sendEmail({
+        email,
+        subject: 'Spectre CTF - Bug Report',
+        message
+      });
+    }
+
+    res.json({ message: 'Bug reported successfully' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error reporting bug' });
   }
 });
 

@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Bell, Search, ChevronDown, User as UserIcon, LogOut, Shield, Eye } from 'lucide-react';
+import { Bell, Search, ChevronDown, User as UserIcon, LogOut, Shield, Eye, Bug, X, Loader2 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useSearch } from '../../context/SearchContext';
 import { userService } from '../../services/userService';
+import API_URL from '../../constants/api';
 
 export default function Topbar({ unreadCount, setUnreadCount }) {
   const navigate = useNavigate();
@@ -12,6 +13,9 @@ export default function Topbar({ unreadCount, setUnreadCount }) {
   const { searchQuery, setSearchQuery } = useSearch();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [profileData, setProfileData] = useState(null);
+  const [isBugModalOpen, setIsBugModalOpen] = useState(false);
+  const [bugDescription, setBugDescription] = useState('');
+  const [bugStatus, setBugStatus] = useState({ loading: false, success: false, error: null });
   const dropdownRef = useRef(null);
 
   useEffect(() => {
@@ -50,6 +54,34 @@ export default function Topbar({ unreadCount, setUnreadCount }) {
     }
   };
 
+  const submitBugReport = async () => {
+    if (!bugDescription.trim()) return;
+    setBugStatus({ loading: true, success: false, error: null });
+    try {
+      const res = await fetch(`${API_URL}/api/users/report-bug`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ description: bugDescription })
+      });
+      if (res.ok) {
+        setBugStatus({ loading: false, success: true, error: null });
+        setTimeout(() => {
+          setIsBugModalOpen(false);
+          setBugDescription('');
+          setBugStatus({ loading: false, success: false, error: null });
+        }, 2000);
+      } else {
+        const data = await res.json();
+        setBugStatus({ loading: false, success: false, error: data.message || 'Failed to submit' });
+      }
+    } catch (err) {
+      setBugStatus({ loading: false, success: false, error: 'Network error occurred' });
+    }
+  };
+
   const isParticularWriteup = location.pathname.startsWith('/writeups/') && location.pathname !== '/writeups';
   const isAdminOrSupervisor = location.pathname.startsWith('/admin') || location.pathname.startsWith('/supervisor');
   const hideSearch = location.pathname === '/profile' || location.pathname === '/dashboard' || location.pathname === '/scoreboard' || isAdminOrSupervisor || isParticularWriteup;
@@ -73,6 +105,26 @@ export default function Topbar({ unreadCount, setUnreadCount }) {
       </div>
       
       <div className="topbar-right">
+        <button
+          onClick={() => setIsBugModalOpen(true)}
+          style={{ 
+            background: 'rgba(239, 68, 68, 0.1)', 
+            border: '1px solid rgba(239, 68, 68, 0.3)', 
+            cursor: 'pointer', 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '6px', 
+            color: '#ef4444', 
+            fontSize: '0.85rem', 
+            fontWeight: 600,
+            padding: '8px 14px',
+            borderRadius: '8px',
+            marginRight: '8px'
+          }}
+        >
+          <Bug size={16} />
+          <span style={{ display: 'none' }} className="hidden-mobile">Report Bug</span>
+        </button>
         <Link
           to="/notifications"
           className="notification-btn"
@@ -151,6 +203,56 @@ export default function Topbar({ unreadCount, setUnreadCount }) {
           )}
         </div>
       </div>
+
+      {isBugModalOpen && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999
+        }}>
+          <div style={{
+            background: '#11131a', border: '1px solid rgba(255,255,255,0.1)',
+            padding: '24px', borderRadius: '16px', width: '90%', maxWidth: '400px',
+            position: 'relative'
+          }}>
+            <button 
+              onClick={() => setIsBugModalOpen(false)}
+              style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
+            >
+              <X size={20} />
+            </button>
+            <h2 style={{ margin: '0 0 16px 0', fontSize: '1.2rem', color: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Bug size={20} color="#ef4444" /> Report a Bug
+            </h2>
+            <textarea
+              placeholder="Describe the issue you encountered..."
+              value={bugDescription}
+              onChange={(e) => setBugDescription(e.target.value)}
+              rows={4}
+              style={{
+                width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)',
+                color: '#fff', padding: '12px', borderRadius: '8px', resize: 'none', fontFamily: 'inherit',
+                fontSize: '0.9rem', marginBottom: '16px', outline: 'none'
+              }}
+            />
+            {bugStatus.error && <div style={{ color: '#ef4444', fontSize: '0.85rem', marginBottom: '12px' }}>{bugStatus.error}</div>}
+            {bugStatus.success && <div style={{ color: '#10b981', fontSize: '0.85rem', marginBottom: '12px' }}>Bug reported successfully!</div>}
+            <button
+              onClick={submitBugReport}
+              disabled={bugStatus.loading || !bugDescription.trim() || bugStatus.success}
+              style={{
+                width: '100%', padding: '10px', borderRadius: '8px', border: 'none',
+                background: bugStatus.success ? '#10b981' : '#ef4444', color: '#fff', fontWeight: 600,
+                cursor: (bugStatus.loading || !bugDescription.trim() || bugStatus.success) ? 'not-allowed' : 'pointer',
+                opacity: (bugStatus.loading || !bugDescription.trim() || bugStatus.success) ? 0.7 : 1,
+                display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px'
+              }}
+            >
+              {bugStatus.loading ? <Loader2 size={16} className="spin-icon" /> : bugStatus.success ? 'Sent' : 'Submit Report'}
+            </button>
+          </div>
+        </div>
+      )}
     </header>
   );
 }
