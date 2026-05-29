@@ -19,6 +19,18 @@ const Linkedin = ({ size = 24, color = "currentColor", ...props }) => (
   </svg>
 );
 
+function LiveDateTime() {
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  return now.toLocaleString(undefined, {
+    weekday: 'long', year: 'numeric', month: 'long',
+    day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit'
+  });
+}
+
 // Animated count-up hook
 function useCountUp(target, duration = 1200) {
   const [count, setCount] = useState(0);
@@ -135,9 +147,9 @@ function LandingPage() {
           />
         </h1>
         <h2 className="hero-subtitle">
-          {'>'} Hack. Exploit. Capture the Flag.
+          {'>'} Learn to break systems {'!'}{'!'}
         </h2>
-        <p className="hero-date">Season 4 &bull; April 15-17, 2026</p>
+<p className="hero-date"><LiveDateTime /></p>
 
         <div className="hero-ctas">
           <Link to="/dashboard" className="btn btn-primary">
