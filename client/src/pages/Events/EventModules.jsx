@@ -209,7 +209,9 @@ export default function EventModules() {
               <div className="em-timeline-container">
                 <div className="em-timeline-line"></div>
                 {filteredModules.map((mod, index) => {
-                  const isLocked = !isPrivileged && mod.accessGranted === false;
+                  const nowTime = new Date();
+                  const isTimeLocked = mod.scheduledFor && new Date(mod.scheduledFor) > nowTime;
+                  const isLocked = !isPrivileged && (mod.accessGranted === false || isTimeLocked);
                   // Calculate dynamic completion percentage
                   const modProg = progressMap[mod._id || mod.id];
                   const totalItems = mod.pages ? mod.pages.length : 0;
@@ -233,7 +235,13 @@ export default function EventModules() {
                       style={{ '--mod-color': mod.color || '#a855f7' }}
                     >
                       <div className="em-node-marker">
-                        {isLocked ? <Lock size={18} /> : (isCompleted ? <CheckCircle size={18} /> : <span className="em-node-icon">{mod.icon || '🚀'}</span>)}
+                        {isLocked ? (
+                          <img src="/images/ModuleStatus/Locked.jpeg" alt="Locked" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                        ) : isCompleted ? (
+                          <img src="/images/ModuleStatus/completed.jpeg" alt="Completed" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                        ) : (
+                          <img src="/images/ModuleStatus/NotCompleted.jpeg" alt="Not Completed" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                        )}
                       </div>
                       <div className="em-node-content">
                         <div className="em-node-header">
@@ -348,13 +356,7 @@ export default function EventModules() {
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                        {isLocked ? (
-                          <img src="/images/ModuleStatus/Locked.jpeg" alt="Locked" style={{ width: '45px', height: '45px', borderRadius: '8px', objectFit: 'cover', opacity: 0.8 }} />
-                        ) : isPageDone ? (
-                          <img src="/images/ModuleStatus/completed.jpeg" alt="Completed" style={{ width: '45px', height: '45px', borderRadius: '8px', objectFit: 'cover', border: isChallenge ? '2px solid #a855f7' : '2px solid #22c55e' }} />
-                        ) : (
-                          <img src="/images/ModuleStatus/NotCompleted.jpeg" alt="Not Completed" style={{ width: '45px', height: '45px', borderRadius: '8px', objectFit: 'cover', border: isChallenge ? '2px solid #a855f7' : '1px solid rgba(255,255,255,0.2)' }} />
-                        )}
+                        {isLocked ? <Lock size={18} color="#94a3b8" /> : isPageDone ? <CheckCircle size={18} color={isChallenge ? "#a855f7" : "#22c55e"} /> : <BookOpen size={18} color="#64748b" />}
                         <span style={{ color: isChallenge ? '#a855f7' : '#64748b', fontWeight: '800', fontSize: '1.1rem', minWidth: '30px' }}>
                           {isChallenge ? '🏁' : String(i + 1).padStart(2, '0')}
                         </span>

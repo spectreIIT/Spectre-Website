@@ -115,9 +115,19 @@ export default function EventEditor() {
     }
 
     if (formData.registrationEnabled) {
-      if (new Date(formData.registrationStart) <= new Date(formData.startDate)) {
-        setError('Registration start date must be strictly after the event start date.');
+      if (new Date(formData.registrationStart) >= new Date(formData.endDate)) {
+        setError('Registration start date must be strictly before the event end date.');
         return;
+      }
+      if (formData.registrationEndType === 'specific' && formData.registrationEndDate) {
+        if (new Date(formData.registrationEndDate) <= new Date(formData.registrationStart)) {
+          setError('Registration end date must be strictly after the registration start date.');
+          return;
+        }
+        if (new Date(formData.registrationEndDate) > new Date(formData.endDate)) {
+          setError('Registration end date cannot be after the event end date.');
+          return;
+        }
       }
     }
 
@@ -238,7 +248,7 @@ export default function EventEditor() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
               <div className="form-group">
                 <label>Event Start Date *</label>
-                <input type="datetime-local" min={currentDate} value={formData.startDate} onChange={e => setFormData({...formData, startDate: e.target.value})} required style={{ background: '#1a1d24', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '10px 14px', borderRadius: '6px' }} />
+                <input type="datetime-local" min={id ? '' : currentDate} value={formData.startDate} onChange={e => setFormData({...formData, startDate: e.target.value})} required style={{ background: '#1a1d24', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '10px 14px', borderRadius: '6px' }} />
               </div>
 
               <div className="form-group">
@@ -266,13 +276,13 @@ export default function EventEditor() {
                   
                   <div className="form-group">
                     <label>Registration Start Date *</label>
-                    <input type="datetime-local" min={formData.startDate || currentDate} value={formData.registrationStart} onChange={e => setFormData({...formData, registrationStart: e.target.value})} required style={{ background: '#1a1d24', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '10px 14px', borderRadius: '6px' }} />
+                    <input type="datetime-local" max={formData.endDate || ''} value={formData.registrationStart} onChange={e => setFormData({...formData, registrationStart: e.target.value})} required style={{ background: '#1a1d24', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '10px 14px', borderRadius: '6px' }} />
                   </div>
                   
                   {formData.registrationEndType === 'specific' && (
                     <div className="form-group">
                       <label>Registration End Date *</label>
-                      <input type="datetime-local" min={formData.registrationStart || currentDate} value={formData.registrationEndDate} onChange={e => setFormData({...formData, registrationEndDate: e.target.value})} required style={{ background: '#1a1d24', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '10px 14px', borderRadius: '6px' }} />
+                      <input type="datetime-local" min={formData.registrationStart || ''} max={formData.endDate || ''} value={formData.registrationEndDate} onChange={e => setFormData({...formData, registrationEndDate: e.target.value})} required style={{ background: '#1a1d24', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '10px 14px', borderRadius: '6px' }} />
                     </div>
                   )}
                 </div>
