@@ -136,7 +136,7 @@
 
 .em-timeline-node {
   position: relative;
-  margin-bottom: 40px;
+  margin-bottom: 70px;
   display: flex;
   align-items: stretch;
   cursor: pointer;
@@ -154,25 +154,23 @@
 
 .em-node-marker {
   position: absolute;
-  left: -80px;
+  left: -120px;
   top: 50%;
   transform: translateY(-50%);
-  width: 70px;
-  height: 70px;
-  border-radius: 50%;
-  background: #090a0f;
-  border: 3px solid var(--mod-color);
+  width: 150px;
+  height: 150px;
+  border-radius: 0;
+  background: transparent;
+  border: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 0 15px rgba(0,0,0,0.5);
+  box-shadow: none;
   z-index: 2;
   transition: all 0.3s ease;
-  overflow: hidden;
 }
 
 .em-timeline-node:hover:not(.locked) .em-node-marker {
-  box-shadow: 0 0 25px var(--mod-color);
   transform: translateY(-50%) scale(1.05);
 }
 
@@ -181,15 +179,12 @@
 }
 
 .em-timeline-node.completed .em-node-marker {
-  background: var(--mod-color);
-  color: #fff;
-  border-color: var(--mod-color);
-  box-shadow: 0 0 20px var(--mod-color);
+  /* No background/border change needed for transparent SVG */
 }
 
 .em-timeline-node.locked .em-node-marker {
-  border-color: rgba(255, 255, 255, 0.1);
-  box-shadow: none;
+  /* No border/color change needed for transparent SVG */
+  opacity: 0.8;
 }
 
 .em-node-content {

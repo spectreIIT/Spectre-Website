@@ -232,7 +232,7 @@ router.post('/notifications', protect, isAdmin, async (req, res) => {
 // POST /api/admin/modules — create a new module
 router.post('/modules', protect, isSupervisor, async (req, res) => {
   try {
-    const { title, icon, color, description, status, unlocked, pages, challenge, points, difficulty, category, banner, eventId } = req.body;
+    const { title, icon, color, description, status, unlocked, pages, challenge, points, difficulty, category, banner, eventId, scheduledFor } = req.body;
     const pMode = req.body.pointsMode || 'module';
     let calculatedPoints = points !== undefined ? Number(points) : 100;
     
@@ -258,6 +258,7 @@ router.post('/modules', protect, isSupervisor, async (req, res) => {
       banner: banner || '',
       createdBy: req.user._id,
       eventId: eventId || null,
+      scheduledFor: scheduledFor || null,
       points: calculatedPoints
     });
     await mod.save();

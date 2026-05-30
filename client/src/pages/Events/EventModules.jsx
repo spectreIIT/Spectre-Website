@@ -207,11 +207,17 @@ export default function EventModules() {
               </div>
             ) : (
               <div className="em-timeline-container">
+                <svg width="0" height="0" style={{ position: 'absolute' }}>
+                  <filter id="remove-white" colorInterpolationFilters="sRGB">
+                    <feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  -1 -1 -1 2.95 0" />
+                  </filter>
+                </svg>
                 <div className="em-timeline-line"></div>
                 {filteredModules.map((mod, index) => {
                   const nowTime = new Date();
                   const isTimeLocked = mod.scheduledFor && new Date(mod.scheduledFor) > nowTime;
-                  const isLocked = !isPrivileged && (mod.accessGranted === false || isTimeLocked);
+                  // Strictly enforce time-lock even for privileged previewers when traversing timeline
+                  const isLocked = (!isPrivileged && mod.accessGranted === false) || isTimeLocked;
                   // Calculate dynamic completion percentage
                   const modProg = progressMap[mod._id || mod.id];
                   const totalItems = mod.pages ? mod.pages.length : 0;
@@ -236,11 +242,11 @@ export default function EventModules() {
                     >
                       <div className="em-node-marker">
                         {isLocked ? (
-                          <img src="/images/ModuleStatus/Locked.jpeg" alt="Locked" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                          <img src="/images/ModuleStatus/Locked.jpeg" alt="Locked" style={{ width: '100%', height: '100%', objectFit: 'contain', filter: 'url(#remove-white)' }} />
                         ) : isCompleted ? (
-                          <img src="/images/ModuleStatus/completed.jpeg" alt="Completed" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                          <img src="/images/ModuleStatus/completed.jpeg" alt="Completed" style={{ width: '100%', height: '100%', objectFit: 'contain', filter: 'url(#remove-white)' }} />
                         ) : (
-                          <img src="/images/ModuleStatus/NotCompleted.jpeg" alt="Not Completed" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                          <img src="/images/ModuleStatus/NotCompleted.jpeg" alt="Not Completed" style={{ width: '100%', height: '100%', objectFit: 'contain', filter: 'url(#remove-white)' }} />
                         )}
                       </div>
                       <div className="em-node-content">
