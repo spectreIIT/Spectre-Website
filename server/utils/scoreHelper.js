@@ -7,6 +7,7 @@ import Writeup from '../models/Writeup.js';
 import EventRegistration from '../models/EventRegistration.js';
 import Team from '../models/Team.js';
 import UserXpHistory from '../models/UserXpHistory.js';
+import ActivityLog from '../models/ActivityLog.js';
 
 const STATIC_MODULE_POINTS = {
   '1': 100,
@@ -96,8 +97,12 @@ export const recalculateUserScore = async (userId) => {
     });
     const writeupScore = approvedWriteups.reduce((total, w) => total + (w.pointsAwarded || 0), 0);
 
-    // 4. Update user score
-    user.score = challengeScore + dbModuleScore + staticModuleScore + writeupScore;
+    // 4. Recalculate daily login score
+    const loginDaysCount = await ActivityLog.countDocuments({ userId: userId, type: 'login' });
+    const loginScore = loginDaysCount * 2;
+
+    // 5. Update user score
+    user.score = challengeScore + dbModuleScore + staticModuleScore + writeupScore + loginScore;
     await user.save();
     
     // 5. Store snapshot in UserXpHistory
