@@ -54,6 +54,24 @@ export default function ModuleEditor() {
   });
 
   const [createdBy, setCreatedBy] = useState(null);
+  const [eventDetails, setEventDetails] = useState(null);
+
+  useEffect(() => {
+    const currentEventId = formData.eventId || eventId;
+    if (!currentEventId) return;
+    const fetchEvent = async () => {
+      try {
+        const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/events/${currentEventId}`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setEventDetails(data);
+        }
+      } catch (err) {}
+    };
+    fetchEvent();
+  }, [formData.eventId, eventId]);
 
   // Check read-only/ownership status
   const isOwner = !createdBy || createdBy === user?._id;
@@ -337,6 +355,18 @@ export default function ModuleEditor() {
 
       if (missing.length > 0) {
         setValidationErrorMessage(missing.join(', '));
+        setShowValidationErrorModal(true);
+        return;
+      }
+    }
+
+    if (formData.eventId && formData.scheduledFor && eventDetails) {
+      const scheduledTime = new Date(formData.scheduledFor).getTime();
+      const eventStart = new Date(eventDetails.startDate).getTime();
+      const eventEnd = new Date(eventDetails.endDate).getTime();
+      
+      if (scheduledTime < eventStart || scheduledTime > eventEnd) {
+        setValidationErrorMessage(`Module Unlock Time must be between the Event Start (${new Date(eventDetails.startDate).toLocaleString()}) and Event End (${new Date(eventDetails.endDate).toLocaleString()}).`);
         setShowValidationErrorModal(true);
         return;
       }
@@ -740,19 +770,7 @@ export default function ModuleEditor() {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <label style={labelStyle}>Scheduled Unlock Time (Optional)</label>
-                  <input
-                    type="datetime-local"
-                    value={activePage.scheduledFor ? new Date(new Date(activePage.scheduledFor).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : ''}
-                    onChange={(e) => updateActivePage({ scheduledFor: e.target.value ? new Date(e.target.value).toISOString() : null })}
-                    disabled={isReadOnly}
-                    style={inputStyle}
-                  />
-                  <span style={{ fontSize: '0.7rem', color: '#64748b' }}>If set, this page will be locked until this specific time. It will show the locked picture status until then.</span>
-                </div>
-              </div>
+              {/* Page scheduling removed as per requirements */}
 
               {activePage.type === 'challenge' ? (
                 // Challenge editor fields
@@ -1113,17 +1131,21 @@ export default function ModuleEditor() {
                   </select>
                 </div>
 
-                <div>
-                  <label style={labelStyle}>Scheduled Unlock Time</label>
-                  <input
-                    type="datetime-local"
-                    name="scheduledFor"
-                    value={formData.scheduledFor ? new Date(new Date(formData.scheduledFor).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : ''}
-                    onChange={(e) => updateForm({ scheduledFor: e.target.value ? new Date(e.target.value).toISOString() : null })}
-                    disabled={isReadOnly}
-                    style={inputStyle}
-                  />
-                </div>
+                {formData.eventId && (
+                  <div>
+                    <label style={labelStyle}>Scheduled Unlock Time</label>
+                    <input
+                      type="datetime-local"
+                      name="scheduledFor"
+                      value={formData.scheduledFor ? new Date(new Date(formData.scheduledFor).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : ''}
+                      onChange={(e) => updateForm({ scheduledFor: e.target.value ? new Date(e.target.value).toISOString() : null })}
+                      disabled={isReadOnly}
+                      style={inputStyle}
+                      min={eventDetails ? new Date(new Date(eventDetails.startDate).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : undefined}
+                      max={eventDetails ? new Date(new Date(eventDetails.endDate).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : undefined}
+                    />
+                  </div>
+                )}
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>

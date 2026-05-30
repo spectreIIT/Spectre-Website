@@ -24,7 +24,7 @@ export default function EventEditor() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   
-  const currentDate = new Date().toISOString().slice(0, 16);
+  const currentDate = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
   
   const [formData, setFormData] = useState({
     title: '',
@@ -124,7 +124,16 @@ export default function EventEditor() {
     setSaving(true);
     try {
       const token = localStorage.getItem('token');
-      const payload = { ...formData, thumbnail: formatImageUrl(formData.thumbnail) };
+      const payload = { 
+        ...formData, 
+        thumbnail: formatImageUrl(formData.thumbnail),
+        startDate: formData.startDate ? new Date(formData.startDate).toISOString() : '',
+        endDate: formData.endDate ? new Date(formData.endDate).toISOString() : '',
+        registrationStart: formData.registrationStart ? new Date(formData.registrationStart).toISOString() : '',
+        registrationEndDate: formData.registrationEndDate ? new Date(formData.registrationEndDate).toISOString() : '',
+        writeupsStart: formData.writeupsStart ? new Date(formData.writeupsStart).toISOString() : '',
+        writeupsEnd: formData.writeupsEnd ? new Date(formData.writeupsEnd).toISOString() : ''
+      };
       
       let res;
       if (id) {
