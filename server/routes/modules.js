@@ -220,6 +220,20 @@ router.post('/:moduleId/progress/section', protect, async (req, res) => {
     const { sectionId } = req.body; // Can be a page ID string
     if (!sectionId) return res.status(400).json({ message: 'sectionId/pageId required' });
 
+    const mod = await Module.findById(req.params.moduleId);
+    if (!mod) return res.status(404).json({ message: 'Module not found' });
+
+    if (mod.eventId) {
+      const event = await Event.findById(mod.eventId);
+      if (event && new Date() > new Date(event.endDate)) {
+        const progress = await ModuleProgress.findOne({ user: req.user._id, moduleId: req.params.moduleId });
+        const alreadyRead = progress && progress.completedSections?.includes(sectionId);
+        if (!alreadyRead) {
+          return res.status(403).json({ message: 'Event has concluded. Please complete this module in the Global Modules tab.' });
+        }
+      }
+    }
+
     const eventActive = await isEventActiveForUser(req.params.moduleId, req.user._id);
     const progress = await ModuleProgress.findOne({ user: req.user._id, moduleId: req.params.moduleId });
     let newlyAdded = false;
@@ -246,7 +260,6 @@ router.post('/:moduleId/progress/section', protect, async (req, res) => {
     const currentProg = progress || await ModuleProgress.findOne({ user: req.user._id, moduleId: req.params.moduleId });
 
     // Automatically check if all pages in the module are read/solved, and mark module as completed
-    const mod = await Module.findById(req.params.moduleId);
     if (mod) {
       const completedSet = new Set(currentProg.completedSections || []);
       const allCompleted = mod.pages.every(p => completedSet.has(p.id));
@@ -314,6 +327,24 @@ router.post('/:moduleId/challenge/:pageId/submit', protect, async (req, res) => 
     const page = mod.pages.find(p => p.id === req.params.pageId);
     if (!page) {
       return res.status(404).json({ message: 'Page not found in this module' });
+    }
+
+    if (mod.eventId) {
+      const event = await Event.findById(mod.eventId);
+      if (event && new Date() > new Date(event.endDate)) {
+        const progress = await ModuleProgress.findOne({ user: req.user._id, moduleId: req.params.moduleId });
+        let alreadySolved = false;
+        if (progress) {
+          if (questionId) {
+            alreadySolved = progress.completedQuestions?.includes(questionId);
+          } else {
+            alreadySolved = progress.completedSections?.includes(req.params.pageId);
+          }
+        }
+        if (!alreadySolved) {
+           return res.status(403).json({ message: 'Event has concluded. Please solve this module in the Global Modules tab.' });
+        }
+      }
     }
 
     let isCorrect = false;
@@ -431,6 +462,16 @@ router.post('/:moduleId/complete', protect, async (req, res) => {
   try {
     const mod = await Module.findById(req.params.moduleId);
     if (!mod) return res.status(404).json({ message: 'Module not found' });
+
+    if (mod.eventId) {
+      const event = await Event.findById(mod.eventId);
+      if (event && new Date() > new Date(event.endDate)) {
+         const progress = await ModuleProgress.findOne({ user: req.user._id, moduleId: req.params.moduleId });
+         if (!progress || !progress.isCompleted) {
+            return res.status(403).json({ message: 'Event has concluded. Please complete this module in the Global Modules tab.' });
+         }
+      }
+    }
 
     const eventActive = await isEventActiveForUser(req.params.moduleId, req.user._id);
 

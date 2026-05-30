@@ -15,6 +15,7 @@ import activityRoutes from './routes/activity.js';
 import eventsRoutes from './routes/events.js';
 import challengeRoutes from './routes/challenges.js';
 import adminChallengeRoutes from './routes/adminChallenges.js';
+import { initScheduler } from './utils/scheduler.js';
 
 dotenv.config();
 
@@ -73,6 +74,9 @@ io.on('connection', (socket) => {
     io.emit('players:count', connectedDevices.size);
   });
 });
+
+// Initialize the cron scheduler
+initScheduler(io);
 
 // ── Middleware ────────────────────────────────────────────────────────────────
 app.use(cors({

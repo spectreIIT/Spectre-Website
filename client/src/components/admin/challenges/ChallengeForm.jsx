@@ -29,7 +29,8 @@ export default function ChallengeForm({ challenge, onSave, onCancel, onDelete })
     tags: challenge?.tags || [],
     files: challenge?.files || [],
     hints: challenge?.hints || [],
-    eventId: challenge?.eventId || ''
+    eventId: challenge?.eventId || '',
+    scheduledFor: challenge?.scheduledFor || null
   });
 
   const [newTag, setNewTag] = useState('');
@@ -439,6 +440,18 @@ export default function ChallengeForm({ challenge, onSave, onCancel, onDelete })
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div style={{ flex: 1 }}>
+                <label style={labelStyle}>Scheduled Unlock Time</label>
+                <input
+                  type="datetime-local"
+                  name="scheduledFor"
+                  value={formData.scheduledFor ? new Date(new Date(formData.scheduledFor).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : ''}
+                  onChange={e => updateForm({ scheduledFor: e.target.value ? new Date(e.target.value).toISOString() : null })}
+                  disabled={isReadOnly}
+                  style={inputStyle}
+                />
               </div>
             </div>
 

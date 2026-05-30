@@ -342,7 +342,8 @@ export default function ModuleReader() {
               const isChall = p.type === 'challenge';
               const isActive = !isChallengePage && idx === pageIdx;
               const isDone = isPageRead(p.id);
-              const isLocked = idx > maxAllowedIdx;
+              const isTimeLocked = p.scheduledFor && new Date(p.scheduledFor) > new Date();
+              const isLocked = idx > maxAllowedIdx || isTimeLocked;
 
               return (
                 <button
@@ -360,13 +361,13 @@ export default function ModuleReader() {
                     cursor: isLocked ? 'not-allowed' : 'pointer'
                   }}
                 >
-                  <div className="indicator">
-                    {isDone ? (
-                      <CheckCircle size={14} color={isChall ? '#a855f7' : '#22c55e'} />
-                    ) : isChall ? (
-                      <div className="dot challenge-dot" style={{ backgroundColor: 'rgba(168,85,247,0.4)' }} />
+                  <div className="indicator" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {isLocked ? (
+                      <img src="/images/ModuleStatus/Locked.jpeg" alt="Locked" style={{ width: '22px', height: '22px', borderRadius: '4px', objectFit: 'cover', opacity: 0.7 }} />
+                    ) : isDone ? (
+                      <img src="/images/ModuleStatus/completed.jpeg" alt="Completed" style={{ width: '22px', height: '22px', borderRadius: '4px', objectFit: 'cover', border: isChall ? '1px solid #a855f7' : '1px solid #22c55e' }} />
                     ) : (
-                      <div className="dot" />
+                      <img src="/images/ModuleStatus/NotCompleted.jpeg" alt="Not Completed" style={{ width: '22px', height: '22px', borderRadius: '4px', objectFit: 'cover', border: isChall ? '1px solid #a855f7' : '1px solid rgba(255,255,255,0.2)' }} />
                     )}
                   </div>
                   <span className="label" style={{ fontWeight: isChall ? 'bold' : 'normal' }}>
@@ -392,11 +393,13 @@ export default function ModuleReader() {
                   cursor: (totalPages > maxAllowedIdx) ? 'not-allowed' : 'pointer'
                 }}
               >
-                <div className="indicator">
-                  {isModuleCompleted ? (
-                    <CheckCircle size={14} color="#a855f7" />
+                <div className="indicator" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {totalPages > maxAllowedIdx ? (
+                    <img src="/images/ModuleStatus/Locked.jpeg" alt="Locked" style={{ width: '22px', height: '22px', borderRadius: '4px', objectFit: 'cover', opacity: 0.7 }} />
+                  ) : isModuleCompleted ? (
+                    <img src="/images/ModuleStatus/completed.jpeg" alt="Completed" style={{ width: '22px', height: '22px', borderRadius: '4px', objectFit: 'cover', border: '1px solid #a855f7' }} />
                   ) : (
-                    <div className="dot challenge-dot" style={{ backgroundColor: 'rgba(168,85,247,0.4)' }} />
+                    <img src="/images/ModuleStatus/NotCompleted.jpeg" alt="Not Completed" style={{ width: '22px', height: '22px', borderRadius: '4px', objectFit: 'cover', border: '1px solid #a855f7' }} />
                   )}
                 </div>
                 <span className="label" style={{ fontWeight: 'bold' }}>🏁 Final Lab: {mod.challenge.title}</span>
@@ -450,6 +453,18 @@ export default function ModuleReader() {
                         </ReactMarkdown>
                       ) : (
                         <p style={{ color: '#64748b', fontStyle: 'italic' }}>Instructions pending specifications.</p>
+                      )}
+
+                      {/* Embedded External UI */}
+                      {activePage.embedUrl && (
+                        <div style={{ marginTop: '28px', width: '100%', height: '600px', backgroundColor: '#090a0f', border: '1px solid rgba(168,85,247,0.3)', borderRadius: '10px', overflow: 'hidden' }}>
+                          <iframe 
+                            src={formatExternalUrl(activePage.embedUrl)} 
+                            title={`Embedded Challenge ${activePage.title}`}
+                            style={{ width: '100%', height: '100%', border: 'none' }}
+                            allow="fullscreen"
+                          />
+                        </div>
                       )}
 
                       {/* Attached Lab Files */}

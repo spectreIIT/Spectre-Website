@@ -105,6 +105,7 @@ export default function ModuleEditor() {
             points: data.points !== undefined ? data.points : 100,
             prerequisites: (data.prerequisites || []).map(p => p._id || p),
             eventId: data.eventId || '',
+            scheduledFor: data.scheduledFor || null,
             pages: data.pages || [],
             challenge: data.challenge || { title: '', description: '', files: [], flag: '' }
           });
@@ -739,6 +740,20 @@ export default function ModuleEditor() {
                 </div>
               </div>
 
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label style={labelStyle}>Scheduled Unlock Time (Optional)</label>
+                  <input
+                    type="datetime-local"
+                    value={activePage.scheduledFor ? new Date(new Date(activePage.scheduledFor).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : ''}
+                    onChange={(e) => updateActivePage({ scheduledFor: e.target.value ? new Date(e.target.value).toISOString() : null })}
+                    disabled={isReadOnly}
+                    style={inputStyle}
+                  />
+                  <span style={{ fontSize: '0.7rem', color: '#64748b' }}>If set, this page will be locked until this specific time. It will show the locked picture status until then.</span>
+                </div>
+              </div>
+
               {activePage.type === 'challenge' ? (
                 // Challenge editor fields
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1 }}>
@@ -946,6 +961,19 @@ export default function ModuleEditor() {
                     )}
                   </div>
 
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={labelStyle}>Embedded External UI (IFrame URL)</label>
+                    <input 
+                      type="url"
+                      placeholder="e.g. https://my-external-challenge-site.com"
+                      value={activePage.embedUrl || ''}
+                      onChange={(e) => updateActivePage({ embedUrl: e.target.value })}
+                      disabled={isReadOnly}
+                      style={inputStyle}
+                    />
+                    <p style={{ margin: '0', fontSize: '0.75rem', color: '#64748b' }}>If provided, this URL will be embedded directly into the module viewer so users don't have to leave the platform.</p>
+                  </div>
+
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
                     <label style={labelStyle}>Challenge Description</label>
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', marginTop: '6px' }}>
@@ -1075,13 +1103,27 @@ export default function ModuleEditor() {
                 />
               </div>
 
-              <div>
-                <label style={labelStyle}>Visibility Status</label>
-                <select name="status" value={formData.status} onChange={handleInputChange} style={inputStyle}>
-                  <option value="draft">Draft</option>
-                  <option value="active">Active (Live)</option>
-                  <option value="hidden">Hidden (Admins only)</option>
-                </select>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div>
+                  <label style={labelStyle}>Visibility Status</label>
+                  <select name="status" value={formData.status} onChange={handleInputChange} style={inputStyle}>
+                    <option value="draft">Draft</option>
+                    <option value="active">Active (Live)</option>
+                    <option value="hidden">Hidden (Admins only)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={labelStyle}>Scheduled Unlock Time</label>
+                  <input
+                    type="datetime-local"
+                    name="scheduledFor"
+                    value={formData.scheduledFor ? new Date(new Date(formData.scheduledFor).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : ''}
+                    onChange={(e) => updateForm({ scheduledFor: e.target.value ? new Date(e.target.value).toISOString() : null })}
+                    disabled={isReadOnly}
+                    style={inputStyle}
+                  />
+                </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>

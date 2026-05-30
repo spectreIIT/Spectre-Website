@@ -326,7 +326,8 @@ export default function EventModules() {
                 
                 return activePages.map((page, i) => {
                   const isPageDone = activeModuleCompletedPages.has(page.id);
-                  const isLocked = i > maxAllowedIdx;
+                  const isTimeLocked = page.scheduledFor && new Date(page.scheduledFor) > new Date();
+                  const isLocked = i > maxAllowedIdx || isTimeLocked;
                   const modId = activeModule._id || activeModule.id;
                   const isChallenge = page.type === 'challenge';
 
@@ -347,9 +348,13 @@ export default function EventModules() {
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                        {isPageDone
-                          ? <CheckCircle size={20} color={isChallenge ? '#a855f7' : '#22c55e'} />
-                          : (isChallenge ? <Award size={20} color="#a855f7" /> : <BookOpen size={20} color="#64748b" />)}
+                        {isLocked ? (
+                          <img src="/images/ModuleStatus/Locked.jpeg" alt="Locked" style={{ width: '45px', height: '45px', borderRadius: '8px', objectFit: 'cover', opacity: 0.8 }} />
+                        ) : isPageDone ? (
+                          <img src="/images/ModuleStatus/completed.jpeg" alt="Completed" style={{ width: '45px', height: '45px', borderRadius: '8px', objectFit: 'cover', border: isChallenge ? '2px solid #a855f7' : '2px solid #22c55e' }} />
+                        ) : (
+                          <img src="/images/ModuleStatus/NotCompleted.jpeg" alt="Not Completed" style={{ width: '45px', height: '45px', borderRadius: '8px', objectFit: 'cover', border: isChallenge ? '2px solid #a855f7' : '1px solid rgba(255,255,255,0.2)' }} />
+                        )}
                         <span style={{ color: isChallenge ? '#a855f7' : '#64748b', fontWeight: '800', fontSize: '1.1rem', minWidth: '30px' }}>
                           {isChallenge ? '🏁' : String(i + 1).padStart(2, '0')}
                         </span>

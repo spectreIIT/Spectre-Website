@@ -8,6 +8,7 @@ import EventRegistration from '../models/EventRegistration.js';
 import Team from '../models/Team.js';
 import UserXpHistory from '../models/UserXpHistory.js';
 import ActivityLog from '../models/ActivityLog.js';
+import Event from '../models/Event.js';
 
 const STATIC_MODULE_POINTS = {
   '1': 100,
@@ -101,8 +102,56 @@ export const recalculateUserScore = async (userId) => {
     const loginDaysCount = await ActivityLog.countDocuments({ userId: userId, type: 'login' });
     const loginScore = loginDaysCount * 2;
 
-    // 5. Update user score
-    user.score = challengeScore + dbModuleScore + staticModuleScore + writeupScore + loginScore;
+    // 5. Recalculate event completion bonus (+10 points per fully completed event)
+    let eventCompletionBonus = 0;
+    
+    // Find all events the user registered for
+    const eventRegistrations = await EventRegistration.find({ userId }).populate('eventId');
+    
+    for (const reg of eventRegistrations) {
+      if (!reg.eventId) continue;
+      const event = reg.eventId;
+      
+      const eventChallenges = await Challenge.find({ eventId: event._id });
+      const eventModulesDb = await Module.find({ eventId: event._id });
+      
+      const totalItems = eventChallenges.length + eventModulesDb.length;
+      if (totalItems === 0) continue; // Skip empty events
+      
+      let completedAll = true;
+      
+      // Check challenges
+      for (const c of eventChallenges) {
+        // Find solve for this challenge
+        const solve = user.solves.find(s => 
+          s.challengeId && 
+          (s.challengeId._id ? s.challengeId._id.toString() === c._id.toString() : s.challengeId.toString() === c._id.toString())
+        );
+        
+        if (!solve || new Date(solve.solvedAt) > new Date(event.endDate)) {
+          completedAll = false;
+          break;
+        }
+      }
+      
+      if (!completedAll) continue;
+      
+      // Check modules
+      for (const m of eventModulesDb) {
+        const prog = allProgress.find(p => p.moduleId === m._id.toString());
+        if (!prog || !prog.isCompletedDuringEvent) {
+          completedAll = false;
+          break;
+        }
+      }
+      
+      if (completedAll) {
+        eventCompletionBonus += 10;
+      }
+    }
+
+    // 6. Update user score
+    user.score = challengeScore + dbModuleScore + staticModuleScore + writeupScore + loginScore + eventCompletionBonus;
     await user.save();
     
     // 5. Store snapshot in UserXpHistory
@@ -130,7 +179,8 @@ export const recalculateUserScore = async (userId) => {
 export const recalculateEventScore = async (eventId, userId) => {
   try {
     const user = await User.findById(userId).populate('solves.challengeId');
-    if (!user) return 0;
+    const event = await Event.findById(eventId);
+    if (!user || !event) return 0;
 
     // 1. Recalculate event challenge score
     const eventSolves = user.solves.filter(solve => 
@@ -149,10 +199,13 @@ export const recalculateEventScore = async (eventId, userId) => {
     const dbModules = await Module.find({ _id: { $in: dbModuleIds }, eventId: eventId });
     
     let dbModuleScore = 0;
+    const bonusDays = new Set();
     
     allProgress.forEach(prog => {
       const mod = dbModules.find(m => m._id.toString() === prog.moduleId);
       if (mod) {
+        let moduleFullyCompleted = false;
+
         if (mod.pointsMode === 'page') {
           const completedPages = new Set(prog.completedSectionsDuringEvent || []);
           const completedQuestions = new Set(prog.completedQuestionsDuringEvent || []);
@@ -168,13 +221,29 @@ export const recalculateEventScore = async (eventId, userId) => {
               });
             }
           });
+          if (prog.isCompletedDuringEvent) {
+             moduleFullyCompleted = true;
+          }
         } else {
           if (prog.isCompletedDuringEvent) {
             dbModuleScore += (mod.points || 0);
+            moduleFullyCompleted = true;
           }
+        }
+
+        if (event.eventType === 'module' && moduleFullyCompleted) {
+           const releaseDay = new Date(mod.createdAt).toISOString().split('T')[0];
+           const completionDay = new Date(prog.lastActivityAt || new Date()).toISOString().split('T')[0];
+           if (releaseDay === completionDay) {
+              bonusDays.add(releaseDay);
+           }
         }
       }
     });
+
+    if (event.eventType === 'module') {
+      dbModuleScore += bonusDays.size * 5;
+    }
 
     // 3. Recalculate event writeup score
     const approvedWriteups = await Writeup.find({

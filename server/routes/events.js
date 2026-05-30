@@ -12,6 +12,74 @@ import User from '../models/User.js';
 
 const router = express.Router();
 
+// Helper to archive event and migrate its challenges/modules to global with 50% points
+async function archiveEventAndMigrateContent(event) {
+  if (event.status === 'archived') return;
+
+  event.status = 'archived';
+  await Event.findByIdAndUpdate(event._id, { status: 'archived' });
+
+  try {
+    // 1. Clone Challenges to Global
+    const challenges = await Challenge.find({ eventId: event._id });
+    for (const c of challenges) {
+       const existingGlobal = await Challenge.findOne({ title: c.title, eventId: null });
+       if (!existingGlobal) {
+         const newPoints = Math.round((c.currentPoints || c.points) * 0.5);
+         const cObj = c.toObject();
+         delete cObj._id;
+         
+         const newChallenge = new Challenge({
+             ...cObj,
+             eventId: null,
+             points: newPoints,
+             initialPoints: newPoints,
+             currentPoints: newPoints,
+             scoringType: 'static',
+             status: 'active',
+             solves: 0,
+             createdAt: Date.now()
+         });
+         await newChallenge.save();
+       }
+    }
+
+    // 2. Clone Modules to Global
+    const modules = await Module.find({ eventId: event._id });
+    for (const m of modules) {
+       const existingGlobal = await Module.findOne({ title: m.title, eventId: null });
+       if (!existingGlobal) {
+         const modObj = m.toObject();
+         delete modObj._id;
+         
+         const newPoints = Math.round((m.points || 0) * 0.5);
+         
+         if (modObj.pages && modObj.pages.length > 0) {
+            modObj.pages.forEach(page => {
+               page.points = Math.round((page.points || 0) * 0.5);
+               if (page.questions && page.questions.length > 0) {
+                  page.questions.forEach(q => {
+                     q.points = Math.round((q.points || 0) * 0.5);
+                  });
+               }
+            });
+         }
+
+         const newModule = new Module({
+             ...modObj,
+             eventId: null,
+             points: newPoints,
+             status: 'active',
+             createdAt: Date.now()
+         });
+         await newModule.save();
+       }
+    }
+  } catch (err) {
+    console.error('Error migrating event content:', err);
+  }
+}
+
 // ── GET /api/events ──────────────────────────────────────────────────────────
 // Get all active/public events for users, or all for admins/supervisors
 router.get('/', protect, async (req, res) => {
@@ -31,8 +99,7 @@ router.get('/', protect, async (req, res) => {
       } else if (now > new Date(ev.endDate).getTime()) {
         lifecycleStatus = 'past';
         if (ev.status === 'active') {
-          await Event.findByIdAndUpdate(ev._id, { status: 'archived' });
-          ev.status = 'archived';
+          await archiveEventAndMigrateContent(ev);
         }
       }
 
@@ -92,8 +159,7 @@ router.get('/:id', protect, async (req, res) => {
     } else if (now > new Date(event.endDate).getTime()) {
       lifecycleStatus = 'past';
       if (event.status === 'active') {
-        event.status = 'archived';
-        await event.save();
+        await archiveEventAndMigrateContent(event);
       }
     }
 
@@ -244,6 +310,11 @@ router.get('/:id/challenges', protect, async (req, res) => {
         if (!reg) return res.status(403).json({ message: 'You must register for this event to view challenges' });
       }
       query.status = 'active';
+      query.$or = [
+        { scheduledFor: null },
+        { scheduledFor: { $exists: false } },
+        { scheduledFor: { $lte: now } }
+      ];
     } else if (req.user.role === 'Supervisor') {
       // Supervisors can see all challenges in the event if they are organizers, otherwise only active/hidden + their own
       query.$or = [
@@ -307,6 +378,11 @@ router.get('/:id/modules', protect, async (req, res) => {
         if (!reg) return res.status(403).json({ message: 'You must register for this event to view modules' });
       }
       query.status = 'active';
+      query.$or = [
+        { scheduledFor: null },
+        { scheduledFor: { $exists: false } },
+        { scheduledFor: { $lte: new Date() } }
+      ];
     } else if (req.user.role === 'Supervisor') {
       query.$or = [
         { status: { $in: ['active', 'hidden'] } },

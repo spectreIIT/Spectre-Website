@@ -27,6 +27,7 @@ const challengeSchema = new mongoose.Schema({
   instanceUrl: { type: String },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   eventId: { type: mongoose.Schema.Types.ObjectId, ref: 'Event', default: null },
+  scheduledFor: { type: Date, default: null },
   status: { type: String, enum: ['draft', 'active', 'hidden'], default: 'draft' },
   scoringType: { type: String, enum: ['static', 'dynamic'], default: 'static' },
   initialPoints: { type: Number, default: 100 },
@@ -39,7 +40,7 @@ const challengeSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-challengeSchema.pre('validate', function(next) {
+challengeSchema.pre('validate', async function(next) {
   if (this.status === 'active' || this.status === 'hidden') {
     if (!this.description) {
       this.invalidate('description', 'Description is required for live/hidden challenges');
@@ -57,6 +58,17 @@ challengeSchema.pre('validate', function(next) {
       this.invalidate('flag', 'Flag is required for live/hidden challenges');
     }
   }
+
+  if (this.scheduledFor && this.eventId) {
+    const Event = mongoose.model('Event');
+    const event = await Event.findById(this.eventId);
+    if (event && event.startDate) {
+      if (new Date(this.scheduledFor) <= new Date(event.startDate)) {
+        this.invalidate('scheduledFor', 'Scheduled time must be strictly after the event start time');
+      }
+    }
+  }
+
   next();
 });
 

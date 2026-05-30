@@ -146,6 +146,10 @@ router.post('/:id/submit', protect, async (req, res) => {
        alreadySolved = user.solves.some(s => s.challengeId && s.challengeId.toString() === challenge._id.toString());
     }
 
+    if (!alreadySolved && isPracticeMode) {
+      return res.status(403).json({ message: 'Event has concluded. Please solve this challenge in the Global Challenges tab.' });
+    }
+
     // Count attempts
     const previousAttemptsCount = await Submission.countDocuments({ user: user._id, challenge: challenge._id });
     if (!alreadySolved && challenge.maxAttempts > 0 && previousAttemptsCount >= challenge.maxAttempts) {
