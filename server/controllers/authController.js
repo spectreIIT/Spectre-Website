@@ -47,7 +47,7 @@ export const registerUser = async (req, res) => {
       try {
         await sendEmail({
           email: user.email,
-          subject: 'Spectre CTF - Email Verification',
+          subject: 'Spectre IIT-Bhilai - Email Verification',
           message: `Your verification code is: ${otp}. It will expire in 10 minutes.`,
         });
         res.status(201).json({ message: 'Registration successful. Please verify your email.' });
@@ -257,7 +257,7 @@ export const forgotPassword = async (req, res) => {
 
     await sendEmail({
       email: user.email,
-      subject: 'Spectre CTF - Password Reset',
+      subject: 'Spectre IIT-Bhilai - Password Reset',
       message: `Click the following link to reset your password: <a href="${resetLink}">${resetLink}</a>. It will expire in 10 minutes.`,
     });
 

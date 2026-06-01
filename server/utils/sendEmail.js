@@ -9,7 +9,7 @@ const sendEmail = async (options) => {
   const fromEmail = process.env.EMAIL_USER || 'support@0xspectre.tech';
 
   const { data, error } = await resend.emails.send({
-    from: `Spectre CTF <${fromEmail}>`,
+    from: `Spectre IIT-Bhilai <${fromEmail}>`,
     to: options.email,
     subject: options.subject,
     html: options.html || options.message, // Support both HTML and plain text
