@@ -20,6 +20,19 @@ const Linkedin = ({ size = 20, color = 'currentColor' }) => (
   </svg>
 );
 
+const Github = ({ size = 20, color = 'currentColor' }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
+  </svg>
+);
+
+const Discord = ({ size = 20, color = 'currentColor' }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M8 12a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm8 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" />
+    <path d="M18.99 5.86c-1.37-.8-2.88-1.29-4.48-1.46-.3.56-.63 1.25-.86 1.84-1.63-.25-3.23-.25-4.83 0-.23-.59-.57-1.28-.88-1.84-1.59.17-3.11.66-4.47 1.46-3.05 4.54-3.87 10.35-3.02 16.02 1.83 1.34 3.6 2.14 5.34 2.68.43-.58.82-1.2 1.15-1.85-1.07-.41-2.09-.94-3.04-1.56.26-.19.51-.39.75-.6 3.1 1.43 6.47 1.43 9.54 0 .24.21.49.41.76.6-.96.62-1.98 1.15-3.05 1.56.33.65.73 1.27 1.16 1.85 1.74-.54 3.51-1.34 5.34-2.68.96-6.19-.24-11.83-3.21-16.02z" />
+  </svg>
+);
+
 function LiveDateTime() {
   const [now, setNow] = useState(new Date());
   useEffect(() => {
@@ -207,7 +220,7 @@ function LandingPage() {
         </div>
         <div className="footer-center">
           <div className="footer-email">
-            <Mail size={16} /> [EMAIL_ADDRESS]
+            <Mail size={16} /> <a href="mailto:spectre@iitbhilai.ac.in" style={{color: 'inherit', textDecoration: 'none'}}>spectre@iitbhilai.ac.in</a>
           </div>
           <div className="footer-credit">
             Made with <span style={{ color: '#ef4444' }}>❤</span> by Rahul
@@ -217,8 +230,10 @@ function LandingPage() {
           </div>
         </div>
         <div className="footer-right">
-          <a href="#" className="social-link"><Linkedin size={20} /></a>
-          <a href="#" className="social-link"><Instagram size={20} /></a>
+          <a href="https://github.com/spectreIIT" target="_blank" rel="noopener noreferrer" className="social-link"><Github size={20} /></a>
+          <a href="https://discord.gg/7pzr7fPJe" target="_blank" rel="noopener noreferrer" className="social-link"><Discord size={20} /></a>
+          <a href="https://www.linkedin.com/company/spectre-iit-bhilai/" target="_blank" rel="noopener noreferrer" className="social-link"><Linkedin size={20} /></a>
+          <a href="https://www.instagram.com/spectre_iitbhilai?igsh=MWNxdHUyY2xueDJlMw==" target="_blank" rel="noopener noreferrer" className="social-link"><Instagram size={20} /></a>
         </div>
       </footer>
     </div>
