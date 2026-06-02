@@ -112,6 +112,8 @@ const token = () => localStorage.getItem('token');
 
 const formatExternalUrl = (url) => {
   if (!url) return '';
+  url = url.trim();
+  
   // If it starts with http://, https://, or //
   if (/^(https?:)?\/\//i.test(url)) {
     return url;
@@ -120,8 +122,12 @@ const formatExternalUrl = (url) => {
   if (/^(\/|mailto:|tel:|javascript:|#)/i.test(url)) {
     return url;
   }
-  // Otherwise, prefix with https:// to prevent browser relative routes
-  return `https://${url}`;
+  
+  // Check if it looks like an IP address or localhost
+  const isIPOrLocal = /^(localhost|\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(:\d+)?/i.test(url);
+  
+  // Prefix with http:// for IPs/localhost, otherwise default to https://
+  return isIPOrLocal ? `http://${url}` : `https://${url}`;
 };
 
 export default function ModuleReader() {

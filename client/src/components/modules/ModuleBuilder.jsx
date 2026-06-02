@@ -1,7 +1,21 @@
 import { useState, useEffect, useContext } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, BookOpen, HelpCircle, Eye, Edit3, ArrowLeft, Activity, Search, Filter, Award, Lock, Users, CheckCircle, Calendar } from 'lucide-react';
+import { Plus, BookOpen, HelpCircle, Eye, Edit3, ArrowLeft, Activity, Search, Filter, Award, Lock, Users, CheckCircle, Calendar, GripVertical } from 'lucide-react';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import AuthContext from '../../context/AuthContext';
+
+const SortableModuleItem = ({ mod, renderCard, isDragDisabled }) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: mod._id, disabled: isDragDisabled });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : 1,
+    opacity: isDragging ? 0.6 : 1,
+  };
+  return renderCard(mod, { setNodeRef, style, attributes, listeners, isDragDisabled });
+};
 
 export default function ModuleBuilder({ eventId = null, onSaved }) {
   const [dbModules, setDbModules] = useState([]);
@@ -59,6 +73,34 @@ export default function ModuleBuilder({ eventId = null, onSaved }) {
     window.addEventListener('focus', fetchModulesAndAnalytics);
     return () => window.removeEventListener('focus', fetchModulesAndAnalytics);
   }, []);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const handleDragEnd = async (event) => {
+    const { active, over } = event;
+    if (active && over && active.id !== over.id) {
+      setDbModules((items) => {
+        const oldIndex = items.findIndex((item) => item._id === active.id);
+        const newIndex = items.findIndex((item) => item._id === over.id);
+        const newItems = arrayMove(items, oldIndex, newIndex);
+        
+        const orderedIds = newItems.map(item => item._id);
+        fetch(`${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/admin/modules/reorder`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${localStorage.getItem('token')}`
+          },
+          body: JSON.stringify({ orderedIds })
+        }).catch(err => console.error("Error reordering:", err));
+        
+        return newItems;
+      });
+    }
+  };
 
   const setViewParams = (newView, moduleId = null) => {
     const params = new URLSearchParams(searchParams);
@@ -174,21 +216,11 @@ export default function ModuleBuilder({ eventId = null, onSaved }) {
     return matchesSearch && matchesStatus;
   });
 
-  // Sort modules: Active modules first, then Draft, then Hidden modules
-  const sortedModules = [...filteredModules].sort((a, b) => {
-    const statusA = a.status || 'active';
-    const statusB = b.status || 'active';
-    
-    if (statusA === 'active' && statusB !== 'active') return -1;
-    if (statusA !== 'active' && statusB === 'active') return 1;
-    
-    if (statusA === 'draft' && statusB === 'hidden') return -1;
-    if (statusA === 'hidden' && statusB === 'draft') return 1;
-    
-    return 0;
-  });
+  // Sort modules: Backend already sorts by order
+  const sortedModules = filteredModules;
 
-  const renderModuleCard = (mod) => {
+  const renderModuleCard = (mod, sortableProps = {}) => {
+    const { setNodeRef, style, attributes, listeners, isDragDisabled } = sortableProps;
     const createdById = mod.createdBy?._id || mod.createdBy;
     const isOwner = createdById && createdById === user?._id;
     const creatorName = mod.createdBy?.username || 'Admin';
@@ -204,7 +236,9 @@ export default function ModuleBuilder({ eventId = null, onSaved }) {
     return (
       <div 
         key={mod._id} 
+        ref={setNodeRef}
         style={{ 
+          ...style,
           display: 'flex', 
           alignItems: 'center', 
           gap: '16px', 
@@ -213,11 +247,16 @@ export default function ModuleBuilder({ eventId = null, onSaved }) {
           borderLeft: `4px solid ${mod.color || '#00f0ff'}`, 
           borderRadius: '10px', 
           padding: '16px 20px',
-          opacity: canOpen ? 1 : 0.6,
-          transition: 'transform 0.15s, border-color 0.15s',
+          opacity: canOpen ? (style?.opacity || 1) : 0.6,
+          transition: style?.transition ? `${style.transition}, transform 0.15s, border-color 0.15s` : 'transform 0.15s, border-color 0.15s',
           position: 'relative'
         }}
       >
+        {!isDragDisabled && (
+          <div {...attributes} {...listeners} style={{ cursor: 'grab', display: 'flex', alignItems: 'center', color: '#64748b', outline: 'none' }}>
+            <GripVertical size={18} />
+          </div>
+        )}
         {!canOpen && (
           <div style={{
             position: 'absolute',
@@ -587,9 +626,20 @@ export default function ModuleBuilder({ eventId = null, onSaved }) {
             No modules match your search filter parameters.
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {sortedModules.map(renderModuleCard)}
-          </div>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={sortedModules.map(m => m._id)} strategy={verticalListSortingStrategy}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {sortedModules.map(mod => (
+                  <SortableModuleItem 
+                    key={mod._id} 
+                    mod={mod} 
+                    renderCard={renderModuleCard} 
+                    isDragDisabled={searchQuery !== '' || statusFilter !== 'All'}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
         )}
       </div>
     </div>

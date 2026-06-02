@@ -228,6 +228,28 @@ router.post('/notifications', protect, isAdmin, async (req, res) => {
 
 
 // ── Module Management (Admin + Supervisor) ────────────────────────
+// PUT /api/admin/modules/reorder — reorder modules
+router.put('/modules/reorder', protect, isSupervisor, async (req, res) => {
+  try {
+    const { orderedIds } = req.body;
+    if (!Array.isArray(orderedIds)) {
+      return res.status(400).json({ message: 'orderedIds must be an array of module IDs' });
+    }
+
+    const updates = orderedIds.map((id, index) => {
+      // In a real scenario we might verify the supervisor owns the modules if they are not Admin.
+      // But reordering is typically scoped to an event or global space.
+      return Module.findByIdAndUpdate(id, { order: index }, { new: true });
+    });
+
+    await Promise.all(updates);
+
+    res.json({ message: 'Modules reordered successfully' });
+  } catch (error) {
+    console.error('Error reordering modules:', error);
+    res.status(500).json({ message: 'Server error reordering modules' });
+  }
+});
 
 // POST /api/admin/modules — create a new module
 router.post('/modules', protect, isSupervisor, async (req, res) => {

@@ -65,7 +65,7 @@ router.get('/', protect, async (req, res) => {
     const modules = await Module.find(query)
       .populate('prerequisites', '_id title icon')
       .populate('createdBy', '_id username')
-      .sort({ createdAt: 1 });
+      .sort({ order: 1, createdAt: 1 });
 
     // Load all user progress in one query
     const allProgress = await ModuleProgress.find({ user: req.user._id });
