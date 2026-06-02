@@ -145,6 +145,7 @@ export default function ModuleReader() {
   // Questions state
   const [questionAnswers, setQuestionAnswers] = useState({});
   const [questionStatus, setQuestionStatus] = useState({}); // { qId: { loading, error, success } }
+  const [showEmbedFor, setShowEmbedFor] = useState(null);
 
   const loadModuleProgress = useCallback(async () => {
     try {
@@ -457,13 +458,55 @@ export default function ModuleReader() {
 
                       {/* Embedded External UI */}
                       {activePage.embedUrl && (
-                        <div style={{ marginTop: '28px', width: '100%', height: '600px', backgroundColor: '#090a0f', border: '1px solid rgba(168,85,247,0.3)', borderRadius: '10px', overflow: 'hidden' }}>
-                          <iframe 
-                            src={formatExternalUrl(activePage.embedUrl)} 
-                            title={`Embedded Challenge ${activePage.title}`}
-                            style={{ width: '100%', height: '100%', border: 'none' }}
-                            allow="fullscreen"
-                          />
+                        <div style={{ marginTop: '28px', width: '100%', border: '1px solid rgba(168,85,247,0.3)', borderRadius: '10px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                          {showEmbedFor !== activePage.id ? (
+                            <div style={{ padding: '40px', textAlign: 'center', backgroundColor: '#090a0f' }}>
+                              <div style={{ color: '#a855f7', marginBottom: '16px' }}><ExternalLink size={32} style={{ margin: '0 auto' }} /></div>
+                              <h3 style={{ color: '#fff', marginBottom: '8px' }}>Embedded Lab Environment</h3>
+                              <p style={{ color: '#94a3b8', marginBottom: '24px', fontSize: '0.9rem', maxWidth: '400px', margin: '0 auto 24px auto' }}>This lab includes an external site or virtual environment. Click below to load it.</p>
+                              <button 
+                                onClick={() => setShowEmbedFor(activePage.id)}
+                                style={{
+                                  background: 'rgba(168, 85, 247, 0.1)', 
+                                  border: '1px solid rgba(168, 85, 247, 0.3)', 
+                                  color: '#a855f7', 
+                                  padding: '10px 24px', 
+                                  borderRadius: '8px', 
+                                  fontWeight: 600, 
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '8px',
+                                  transition: 'all 0.2s'
+                                }}
+                              >
+                                <Play size={16} /> Load Site Environment
+                              </button>
+                            </div>
+                          ) : (
+                            <div style={{ height: '600px', backgroundColor: '#fff', position: 'relative' }}>
+                              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, padding: '8px 16px', background: '#090a0f', borderBottom: '1px solid rgba(168,85,247,0.3)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 10 }}>
+                                <span style={{ color: '#a855f7', fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <ExternalLink size={14} /> External Lab Target
+                                </span>
+                                <div style={{ display: 'flex', gap: '12px' }}>
+                                  <a href={formatExternalUrl(activePage.embedUrl)} target="_blank" rel="noopener noreferrer" style={{ color: '#94a3b8', fontSize: '0.8rem', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    Open in New Tab
+                                  </a>
+                                  <button onClick={() => setShowEmbedFor(null)} style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    Close
+                                  </button>
+                                </div>
+                              </div>
+                              <iframe 
+                                src={formatExternalUrl(activePage.embedUrl)} 
+                                title={`Embedded Challenge ${activePage.title}`}
+                                style={{ width: '100%', height: '100%', border: 'none', backgroundColor: '#fff', paddingTop: '36px' }}
+                                allow="fullscreen"
+                                sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+                              />
+                            </div>
+                          )}
                         </div>
                       )}
 
