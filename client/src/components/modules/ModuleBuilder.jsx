@@ -48,8 +48,6 @@ export default function ModuleBuilder({ eventId = null, onSaved }) {
         let data = await res.json();
         if (eventId) {
           data = data.filter(m => m.eventId === eventId);
-        } else {
-          data = data.filter(m => !m.eventId);
         }
         setDbModules(data);
       }
@@ -284,6 +282,11 @@ export default function ModuleBuilder({ eventId = null, onSaved }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             <span style={{ color: '#fff', fontWeight: 600, fontSize: '0.95rem' }}>{mod.title}</span>
             {getStatusBadge(mod.status)}
+            {mod.eventId && !eventId && (
+              <span style={{ fontSize: '0.65rem', padding: '1px 6px', borderRadius: '3px', backgroundColor: 'rgba(168, 85, 247, 0.08)', color: '#a855f7', border: '1px solid rgba(168, 85, 247, 0.2)', fontWeight: 600, textTransform: 'uppercase' }}>
+                Event Module
+              </span>
+            )}
             {canOpen && (
               canEdit ? (
                 <span style={{ fontSize: '0.65rem', padding: '1px 6px', borderRadius: '3px', backgroundColor: 'rgba(0, 240, 255, 0.08)', color: '#00f0ff', border: '1px solid rgba(0, 240, 255, 0.15)', fontWeight: 600 }}>

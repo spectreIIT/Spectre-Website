@@ -68,6 +68,7 @@ const LoginPage = () => {
               onChange={(e) => setEmail(e.target.value)}
               required
               placeholder="agent@spectre.ctf or Agent007"
+              autoComplete="off"
             />
           </div>
 
@@ -82,6 +83,7 @@ const LoginPage = () => {
               onChange={(e) => setPassword(e.target.value)}
               required
               placeholder="••••••••"
+              autoComplete="new-password"
             />
             <div style={{ textAlign: 'right', marginTop: '0.2rem' }}>
               <Link to="/forgot-password" style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textDecoration: 'none' }}>Forgot Password?</Link>
@@ -97,6 +99,7 @@ const LoginPage = () => {
               type="checkbox"
               checked={rememberMe}
               onChange={(e) => setRememberMe(e.target.checked)}
+              onClick={(e) => e.stopPropagation()}
               className="remember-me-checkbox"
               style={{ cursor: 'pointer', margin: 0, width: '14px', height: '14px' }}
             />

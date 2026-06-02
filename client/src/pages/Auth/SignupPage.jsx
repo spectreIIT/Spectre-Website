@@ -68,6 +68,7 @@ const SignupPage = () => {
               required
               placeholder="operator_name"
               minLength={3}
+              autoComplete="off"
             />
           </div>
 
@@ -82,6 +83,7 @@ const SignupPage = () => {
               onChange={(e) => setEmail(e.target.value)}
               required
               placeholder="agent@spectre.ctf"
+              autoComplete="off"
             />
           </div>
 
@@ -97,6 +99,7 @@ const SignupPage = () => {
               required
               placeholder="••••••••"
               minLength={6}
+              autoComplete="new-password"
             />
           </div>
 
@@ -112,6 +115,7 @@ const SignupPage = () => {
               required
               placeholder="••••••••"
               minLength={6}
+              autoComplete="new-password"
             />
           </div>
 

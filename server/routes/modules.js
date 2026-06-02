@@ -48,12 +48,7 @@ router.get('/', protect, async (req, res) => {
     if (req.user.role === 'Member') {
       query = {}; // Fetch all to match titles with static overrides securely
     } else if (req.user.role === 'Supervisor') {
-      query = {
-        $or: [
-          { status: { $in: ['active', 'hidden', null, undefined] } },
-          { status: 'draft', createdBy: req.user._id }
-        ]
-      };
+      query = {}; // Supervisors can see all modules, including drafts by others
     }
     
     if (req.query.eventId) {
@@ -187,11 +182,7 @@ router.get('/:moduleId', protect, async (req, res) => {
     if (req.user.role === 'Member' && mod.status && mod.status !== 'active') {
       return res.status(403).json({ message: 'Access Denied: Module is not active' });
     }
-    if (req.user.role === 'Supervisor') {
-      if (mod.status === 'draft' && !isCreator) {
-        return res.status(403).json({ message: 'Access Denied: Draft module belongs to another supervisor' });
-      }
-    }
+    // Supervisors are allowed to view draft modules created by other supervisors
     
     res.json(mod);
   } catch (err) {
