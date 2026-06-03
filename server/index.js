@@ -109,13 +109,15 @@ app.use('/preview', createProxyMiddleware({
         const decodedUrl = Buffer.from(match[1], 'base64url').toString('utf-8');
         if (decodedUrl.startsWith('http://') || decodedUrl.startsWith('https://')) {
           const parsed = new URL(decodedUrl);
-          let basePath = parsed.pathname;
           let rest = match[2] || '';
           
-          if (basePath.endsWith('/') && rest.startsWith('/')) {
-            basePath = basePath.slice(0, -1);
+          if (rest === '' || rest === '/') {
+            return parsed.pathname + parsed.search;
           }
-          return basePath + rest;
+          
+          let relativePath = rest.startsWith('/') ? rest.slice(1) : rest;
+          const targetUrl = new URL(relativePath, decodedUrl);
+          return targetUrl.pathname + targetUrl.search;
         }
       } catch (err) {}
     }
