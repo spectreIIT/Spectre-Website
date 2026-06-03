@@ -16,6 +16,7 @@ import eventsRoutes from './routes/events.js';
 import challengeRoutes from './routes/challenges.js';
 import adminChallengeRoutes from './routes/adminChallenges.js';
 import { initScheduler } from './utils/scheduler.js';
+import { createProxyMiddleware } from 'http-proxy-middleware';
 
 dotenv.config();
 
@@ -83,6 +84,51 @@ app.use(cors({
   origin: process.env.CLIENT_URL || 'http://localhost:5173',
   credentials: true,
 }));
+
+// Proxy middleware for embedding arbitrary HTTP challenges
+app.use('/preview', createProxyMiddleware({
+  target: 'http://placeholder.invalid', // Target is dynamically overridden
+  router: (req) => {
+    const match = req.originalUrl.match(/^\/preview\/([^/?]+)/);
+    if (match) {
+      try {
+        const decodedUrl = Buffer.from(match[1], 'base64url').toString('utf-8');
+        if (decodedUrl.startsWith('http://') || decodedUrl.startsWith('https://')) {
+          const parsed = new URL(decodedUrl);
+          return `${parsed.protocol}//${parsed.host}`;
+        }
+      } catch (err) {}
+    }
+    return null;
+  },
+  changeOrigin: true,
+  pathRewrite: (path, req) => {
+    const match = path.match(/^\/preview\/([^/?]+)(.*)$/);
+    if (match) {
+      try {
+        const decodedUrl = Buffer.from(match[1], 'base64url').toString('utf-8');
+        if (decodedUrl.startsWith('http://') || decodedUrl.startsWith('https://')) {
+          const parsed = new URL(decodedUrl);
+          let basePath = parsed.pathname;
+          let rest = match[2] || '';
+          
+          if (basePath.endsWith('/') && rest.startsWith('/')) {
+            basePath = basePath.slice(0, -1);
+          }
+          return basePath + rest;
+        }
+      } catch (err) {}
+    }
+    return path;
+  },
+  on: {
+    proxyRes: (proxyRes) => {
+      proxyRes.headers['x-frame-options'] = 'ALLOWALL';
+      proxyRes.headers['content-security-policy'] = "frame-ancestors *";
+    },
+  },
+}));
+
 app.use(express.json());
 app.use(cookieParser());
 
