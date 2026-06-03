@@ -34,7 +34,8 @@ export default function ChallengeEmbed({
   }
 
   const encodedUrl = toBase64Url(targetUrl);
-  const embedUrl = `/preview/${encodedUrl}/`;
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+  const embedUrl = `${API_URL}/preview/${encodedUrl}/`;
 
   return (
     <div style={{ width, position: "relative" }}>

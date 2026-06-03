@@ -130,6 +130,21 @@ const formatExternalUrl = (url) => {
   return isIPOrLocal ? `http://${url}` : `https://${url}`;
 };
 
+const toProxyUrl = (url) => {
+  if (!url) return '';
+  const formattedUrl = formatExternalUrl(url);
+  if (formattedUrl.startsWith('/')) return formattedUrl; // Local paths don't need proxy
+  
+  try {
+    const encoded = btoa(formattedUrl).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    // Need to use the API base URL if the React app runs on a different port than the backend
+    // Since /preview is handled by the backend Express server.
+    return `${API}/preview/${encoded}/`;
+  } catch (err) {
+    return formattedUrl;
+  }
+};
+
 export default function ModuleReader() {
   const { moduleId, sectionIdx: sectionIdxParam } = useParams();
   const navigate = useNavigate();
@@ -505,7 +520,7 @@ export default function ModuleReader() {
                                 </div>
                               </div>
                               <iframe 
-                                src={formatExternalUrl(activePage.embedUrl)} 
+                                src={toProxyUrl(activePage.embedUrl)} 
                                 title={`Embedded Challenge ${activePage.title}`}
                                 style={{ width: '100%', height: '100%', border: 'none', backgroundColor: '#fff', paddingTop: '36px' }}
                                 allow="fullscreen"
