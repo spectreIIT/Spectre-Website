@@ -103,7 +103,8 @@ app.use('/preview', createProxyMiddleware({
   },
   changeOrigin: true,
   pathRewrite: (path, req) => {
-    const match = path.match(/^\/preview\/([^/?]+)(.*)$/);
+    // path here is req.url, which has '/preview' stripped by Express app.use()
+    const match = path.match(/^\/([^/?]+)(.*)$/);
     if (match) {
       try {
         const decodedUrl = Buffer.from(match[1], 'base64url').toString('utf-8');

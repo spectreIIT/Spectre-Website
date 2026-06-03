@@ -63,6 +63,25 @@ export default function EventModules() {
     fetchModulesAndProgress();
   }, [event._id, isAdminOrSupervisor, isPrivilegedView]);
 
+  // Handle auto-opening module from URL parameter
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const urlModuleId = searchParams.get('moduleId');
+    
+    if (modules.length > 0 && urlModuleId && !activeModule) {
+      const targetMod = modules.find(m => m._id === urlModuleId || m.id === urlModuleId);
+      if (targetMod) {
+        const nowTime = new Date();
+        const isTimeLocked = targetMod.scheduledFor && new Date(targetMod.scheduledFor) > nowTime;
+        const isLocked = (!isPrivileged && targetMod.accessGranted === false) || isTimeLocked;
+        
+        if (!isLocked) {
+          setActiveModule(targetMod);
+        }
+      }
+    }
+  }, [modules, location.search, activeModule, isPrivileged]);
+
   if (isAdminOrSupervisor && isPrivilegedView) {
     return (
       <div className="event-modules-admin">
