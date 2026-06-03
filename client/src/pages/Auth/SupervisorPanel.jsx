@@ -98,7 +98,15 @@ function SupervisorPanel() {
                       <td style={{ padding: '12px 16px', color: '#a855f7', fontWeight: 600 }}>{u.writeupsCount || 0}</td>
                       <td style={{ padding: '12px 16px', fontWeight: 'bold', color: '#10b981' }}>{u.score}</td>
                       <td style={{ padding: '12px 16px' }}>
-                        <span style={{ backgroundColor: 'rgba(255,255,255,0.05)', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>
+                        <span style={{ 
+                          backgroundColor: u.role === 'Admin' ? 'rgba(239, 68, 68, 0.1)' : u.role === 'Supervisor' ? 'rgba(234, 179, 8, 0.1)' : 'rgba(16, 185, 129, 0.1)', 
+                          color: u.role === 'Admin' ? '#ef4444' : u.role === 'Supervisor' ? '#eab308' : '#10b981', 
+                          border: `1px solid ${u.role === 'Admin' ? 'rgba(239, 68, 68, 0.2)' : u.role === 'Supervisor' ? 'rgba(234, 179, 8, 0.2)' : 'rgba(16, 185, 129, 0.2)'}`,
+                          padding: '4px 8px', 
+                          borderRadius: '4px', 
+                          fontSize: '0.75rem', 
+                          fontWeight: 600 
+                        }}>
                           {u.role}
                         </span>
                       </td>

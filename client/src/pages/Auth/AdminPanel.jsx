@@ -383,11 +383,19 @@ function AdminPanel() {
                         <select
                           value={u.role}
                           onChange={(e) => confirmRoleChange(u._id, e.target.value)}
-                          style={{ backgroundColor: '#1e212b', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}
+                          style={{ 
+                            backgroundColor: '#1e212b', 
+                            color: u.role === 'Admin' ? '#ef4444' : u.role === 'Supervisor' ? '#eab308' : '#10b981', 
+                            border: '1px solid rgba(255,255,255,0.1)', 
+                            padding: '4px 8px', 
+                            borderRadius: '4px', 
+                            fontSize: '0.75rem', 
+                            fontWeight: 600 
+                          }}
                         >
-                          <option value="Member">Member</option>
-                          <option value="Supervisor">Supervisor</option>
-                          <option value="Admin">Admin</option>
+                          <option value="Member" style={{ color: '#10b981' }}>Member</option>
+                          <option value="Supervisor" style={{ color: '#eab308' }}>Supervisor</option>
+                          <option value="Admin" style={{ color: '#ef4444' }}>Admin</option>
                         </select>
                       </td>
                     </tr>

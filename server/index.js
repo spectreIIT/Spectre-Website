@@ -122,9 +122,29 @@ app.use('/preview', createProxyMiddleware({
     return path;
   },
   on: {
-    proxyRes: (proxyRes) => {
-      proxyRes.headers['x-frame-options'] = 'ALLOWALL';
-      proxyRes.headers['content-security-policy'] = "frame-ancestors *";
+    proxyRes: (proxyRes, req, res) => {
+      // Browsers block invalid X-Frame-Options values (like ALLOWALL). 
+      // The only safe way to allow framing is to completely remove these headers.
+      delete proxyRes.headers['x-frame-options'];
+      delete proxyRes.headers['content-security-policy'];
+      if (typeof res.removeHeader === 'function') {
+        res.removeHeader('x-frame-options');
+        res.removeHeader('content-security-policy');
+      }
+
+      // Automatically wrap redirects so they don't escape our proxy
+      if (proxyRes.statusCode >= 300 && proxyRes.statusCode < 400 && proxyRes.headers['location']) {
+        const location = proxyRes.headers['location'];
+        if (location.startsWith('http://') || location.startsWith('https://')) {
+          try {
+            const newEncodedUrl = Buffer.from(location, 'utf-8').toString('base64url');
+            proxyRes.headers['location'] = `/preview/${newEncodedUrl}/`;
+            if (typeof res.setHeader === 'function') {
+              res.setHeader('location', proxyRes.headers['location']);
+            }
+          } catch (e) {}
+        }
+      }
     },
   },
 }));
