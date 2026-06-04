@@ -3,7 +3,7 @@ import { applyCommand, applyIndent } from './editorCommands';
 /**
  * Handles professional IDE keyboard shortcuts inside the markdown editor
  */
-export const handleKeyDown = (event, textarea, onValueChange) => {
+export const handleKeyDown = (event, textarea, onValueChange, onImageUploadShortcut) => {
   if (!textarea) return false;
 
   const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
@@ -74,12 +74,16 @@ export const handleKeyDown = (event, textarea, onValueChange) => {
   // Image (Ctrl/Cmd + Shift + I)
   if (isCtrl && isShift && event.key.toLowerCase() === 'i') {
     event.preventDefault();
-    const { newValue, cursorStart, cursorEnd } = applyCommand(textarea, '![', '](https://example.com/image.png)', 'Image Description');
-    onValueChange(newValue);
-    setTimeout(() => {
-      textarea.setSelectionRange(cursorStart, cursorEnd);
-      textarea.focus();
-    }, 0);
+    if (onImageUploadShortcut) {
+      onImageUploadShortcut();
+    } else {
+      const { newValue, cursorStart, cursorEnd } = applyCommand(textarea, '![', '](https://example.com/image.png)', 'Image Description');
+      onValueChange(newValue);
+      setTimeout(() => {
+        textarea.setSelectionRange(cursorStart, cursorEnd);
+        textarea.focus();
+      }, 0);
+    }
     return true;
   }
 

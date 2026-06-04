@@ -64,7 +64,10 @@ export default function Editor({ value, onChange, placeholder = 'Write your mark
         return;
       }
 
-      const handled = handleKeyDown(e, textarea, onChange);
+      // Add a 4th argument to trigger the file input from the shortcut
+      const handled = handleKeyDown(e, textarea, onChange, () => {
+        if (fileInputRef.current) fileInputRef.current.click();
+      });
       if (handled) {
         e.preventDefault();
         e.stopPropagation();
@@ -96,10 +99,12 @@ export default function Editor({ value, onChange, placeholder = 'Write your mark
       const url = await uploadImageToCloudinary(file);
       const imgLink = `![${file.name}|100%xauto](${url})`;
       
-      onChange(prevValue => prevValue.replace(uploadingText, imgLink));
+      const latestVal = textareaRef.current.value;
+      onChange(latestVal.replace(uploadingText, imgLink));
     } catch (err) {
       console.error('Image upload failed:', err);
-      onChange(prevValue => prevValue.replace(uploadingText, `[Upload failed: ${file.name}]`));
+      const latestVal = textareaRef.current.value;
+      onChange(latestVal.replace(uploadingText, `[Upload failed: ${file.name}]`));
     }
   };
 

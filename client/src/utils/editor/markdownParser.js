@@ -284,6 +284,54 @@ export const parseTerminalLines = (html) => {
   return resultLines.join('\n');
 };
 
+export const parseTable = (block) => {
+  const lines = block.split('\n').map(l => l.trim()).filter(l => l.startsWith('|') && l.endsWith('|'));
+  if (lines.length < 2) return block; // Not a valid table
+
+  const headers = lines[0].split('|').slice(1, -1).map(h => h.trim());
+  const alignmentRow = lines[1].split('|').slice(1, -1).map(a => a.trim());
+  
+  // Must be a valid separator row (e.g. ---, :---, :---:, ---:)
+  if (!alignmentRow.every(a => a.replace(/:/g, '').replace(/-/g, '') === '')) {
+    return block;
+  }
+
+  const alignments = alignmentRow.map(a => {
+    if (a.startsWith(':') && a.endsWith(':')) return 'center';
+    if (a.endsWith(':')) return 'right';
+    return 'left'; // default
+  });
+
+  const rows = lines.slice(2).map(line => {
+    return line.split('|').slice(1, -1).map(cell => cell.trim());
+  });
+
+  let html = `<div style="overflow-x: auto; margin: 16px 0; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);"><table style="width: 100%; border-collapse: collapse; text-align: left; background: #11131e; color: #cbd5e1; font-size: 0.9rem;">`;
+  
+  // Theader
+  html += `<thead><tr style="background: rgba(255,255,255,0.04); border-bottom: 1px solid rgba(255,255,255,0.08);">`;
+  headers.forEach((header, i) => {
+    const align = alignments[i] || 'left';
+    html += `<th style="padding: 14px 16px; font-weight: 600; text-align: ${align}; color: #f8fafc; letter-spacing: 0.025em;">${header}</th>`;
+  });
+  html += `</tr></thead>`;
+
+  // Tbody
+  html += `<tbody>`;
+  rows.forEach((row, rowIndex) => {
+    const bg = rowIndex % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)';
+    html += `<tr style="background: ${bg}; border-bottom: 1px solid rgba(255,255,255,0.04); transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='${bg}'">`;
+    row.forEach((cell, i) => {
+      const align = alignments[i] || 'left';
+      html += `<td style="padding: 12px 16px; text-align: ${align};">${cell}</td>`;
+    });
+    html += `</tr>`;
+  });
+  html += `</tbody></table></div>`;
+
+  return html;
+};
+
 export const parseHeaders = (html) => {
   html = html.replace(/^###\s+(.*)$/gm, '<h3 style="color: #e2e8f0; font-size: 1.15rem; margin-top: 24px; margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.08) !important; padding-bottom: 8px !important; font-weight: 600;">$1</h3>');
   html = html.replace(/^##\s+(.*)$/gm, '<h2 style="color: #fff; font-size: 1.35rem; margin-top: 28px; margin-bottom: 14px; border-bottom: 1px solid rgba(255,255,255,0.12) !important; padding-bottom: 10px !important; font-weight: 700;">$1</h2>');
@@ -391,6 +439,14 @@ export const parseMarkdownToHTML = (md) => {
     // Process headers at block level
     if (trimmed.match(/^#{1,3}\s+/)) {
       return parseHeaders(trimmed);
+    }
+
+    // Process tables
+    if (trimmed.startsWith('|') && trimmed.includes('\n|') && trimmed.includes('---')) {
+      const parsedTable = parseTable(trimmed);
+      if (parsedTable !== trimmed) {
+        return parsedTable;
+      }
     }
 
     // Wrap normal text paragraphs, converting single newlines to line breaks
