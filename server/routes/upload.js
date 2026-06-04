@@ -2,7 +2,7 @@ import express from 'express';
 import multer from 'multer';
 import { v2 as cloudinary } from 'cloudinary';
 import dotenv from 'dotenv';
-import auth from '../middleware/auth.js';
+import { protect } from '../middleware/authMiddleware.js';
 
 dotenv.config();
 
@@ -17,7 +17,7 @@ cloudinary.config({
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-router.post('/', auth, upload.single('file'), async (req, res) => {
+router.post('/', protect, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
