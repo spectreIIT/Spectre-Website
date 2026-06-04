@@ -306,24 +306,23 @@ export const parseTable = (block) => {
     return line.split('|').slice(1, -1).map(cell => cell.trim());
   });
 
-  let html = `<div style="overflow-x: auto; margin: 16px 0; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);"><table style="width: 100%; border-collapse: collapse; text-align: left; background: #11131e; color: #cbd5e1; font-size: 0.9rem;">`;
+  let html = `<div style="overflow-x: auto; margin: 16px 0; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1);"><table style="width: 100%; border-collapse: collapse; text-align: left; background: transparent; color: #e2e8f0; font-size: 0.85rem;">`;
   
   // Theader
-  html += `<thead><tr style="background: rgba(255,255,255,0.04); border-bottom: 1px solid rgba(255,255,255,0.08);">`;
+  html += `<thead><tr>`;
   headers.forEach((header, i) => {
     const align = alignments[i] || 'left';
-    html += `<th style="padding: 14px 16px; font-weight: 600; text-align: ${align}; color: #f8fafc; letter-spacing: 0.025em;">${header}</th>`;
+    html += `<th style="padding: 10px 12px; font-weight: 700; text-align: ${align}; color: #fff; border: 1px solid rgba(255,255,255,0.1); border-bottom: 2px solid rgba(255,255,255,0.15);">${header}</th>`;
   });
   html += `</tr></thead>`;
 
   // Tbody
   html += `<tbody>`;
   rows.forEach((row, rowIndex) => {
-    const bg = rowIndex % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)';
-    html += `<tr style="background: ${bg}; border-bottom: 1px solid rgba(255,255,255,0.04); transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='${bg}'">`;
+    html += `<tr style="transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'">`;
     row.forEach((cell, i) => {
       const align = alignments[i] || 'left';
-      html += `<td style="padding: 12px 16px; text-align: ${align};">${cell}</td>`;
+      html += `<td style="padding: 8px 12px; text-align: ${align}; border: 1px solid rgba(255,255,255,0.1);">${cell}</td>`;
     });
     html += `</tr>`;
   });
