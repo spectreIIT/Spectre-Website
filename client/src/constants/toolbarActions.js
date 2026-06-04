@@ -85,6 +85,15 @@ export const TOOLBAR_ACTIONS = [
     defaultText: 'Image Description',
     shortcut: 'Ctrl+Shift+I'
   },
+  {
+    id: 'table',
+    group: ACTION_GROUPS.MEDIA,
+    label: 'Table',
+    before: '',
+    after: '',
+    defaultText: '',
+    shortcut: 'Ctrl+Alt+T'
+  },
 
   // Code
   {

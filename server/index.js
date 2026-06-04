@@ -15,6 +15,7 @@ import activityRoutes from './routes/activity.js';
 import eventsRoutes from './routes/events.js';
 import challengeRoutes from './routes/challenges.js';
 import adminChallengeRoutes from './routes/adminChallenges.js';
+import uploadRoutes from './routes/upload.js';
 import { initScheduler } from './utils/scheduler.js';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 
@@ -166,6 +167,7 @@ app.use('/api/activity', activityRoutes);
 app.use('/api/events', eventsRoutes);
 app.use('/api/challenges', challengeRoutes);
 app.use('/api/admin/challenges', adminChallengeRoutes);
+app.use('/api/upload', uploadRoutes);
 
 // Basic health check
 app.get('/', (req, res) => {

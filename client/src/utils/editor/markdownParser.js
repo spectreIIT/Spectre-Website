@@ -304,6 +304,35 @@ export const parseTextStyles = (html) => {
   // Lightweight Monospace Inline Code (`code`)
   html = html.replace(/`(.*?)`/g, '<code class="spectre-inline-code" style="background: rgba(255, 255, 255, 0.05); color: #c084fc; padding: 2px 5px; border-radius: 4px; font-family: \'Fira Code\', monospace; font-size: 0.82rem; border: 1px solid rgba(255, 255, 255, 0.05); margin: 0 2px; vertical-align: middle;">$1</code>');
 
+  // Images (![alt|width](url) or ![alt](url))
+  // Must run before Links to avoid matching the brackets.
+  html = html.replace(/!\[(.*?)\]\((.*?)\)/g, (match, altData, url) => {
+    let cleanUrl = url.trim();
+    if (!cleanUrl.match(/^(https?:\/\/|\/\/|data:image)/i)) {
+      cleanUrl = 'https://' + cleanUrl;
+    }
+    
+    let alt = altData;
+    let width = '100%';
+    let height = 'auto';
+    
+    // Custom syntax for sizing: ![Alt Text|500] or ![Alt Text|500x300]
+    if (altData.includes('|')) {
+      const parts = altData.split('|');
+      alt = parts[0];
+      const size = parts[1].trim();
+      if (size.includes('x')) {
+        const dims = size.split('x');
+        width = dims[0] + (dims[0].includes('%') || dims[0].includes('px') ? '' : 'px');
+        height = dims[1] + (dims[1].includes('%') || dims[1].includes('px') ? '' : 'px');
+      } else {
+        width = size + (size.includes('%') || size.includes('px') ? '' : 'px');
+      }
+    }
+
+    return `<img src="${cleanUrl}" alt="${alt}" style="max-width: 100%; width: ${width}; height: ${height}; border-radius: 8px; margin: 16px 0; border: 1px solid rgba(255,255,255,0.1); display: block;" />`;
+  });
+
   // Links ([label](url))
   html = html.replace(/\[(.*?)\]\((.*?)\)/g, (match, label, url) => {
     let cleanUrl = url.trim();

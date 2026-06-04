@@ -4,20 +4,26 @@ import PreviewPane from './PreviewPane';
 import SlashMenu from './SlashMenu';
 import StatusBar from './StatusBar';
 import TemplateModal from './TemplateModal';
+import TableModal from './TableModal';
+import DynamicAlertModal from './DynamicAlertModal';
 import { handleKeyDown } from '../../utils/editor/shortcuts';
 import { applyCommand } from '../../utils/editor/editorCommands';
+import { uploadImageToCloudinary } from '../../utils/editor/cloudinaryUpload';
 import '../../styles/components/Editor.css';
 
 export default function Editor({ value, onChange, placeholder = 'Write your markdown content here...', draftKey = 'spectre_editor_draft' }) {
   const [activeTab, setActiveTab] = useState('write'); // 'write', 'split', 'preview'
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
+  const [showTableModal, setShowTableModal] = useState(false);
+  const [showAlertModal, setShowAlertModal] = useState(false);
   const [autosaveState, setAutosaveState] = useState('idle'); // 'idle', 'saving', 'saved'
   
   const [slashMenu, setSlashMenu] = useState({ visible: false, query: '', x: 0, y: 0 });
   
   const textareaRef = useRef(null);
   const editorRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   // 1. Recover Draft Autosave from localStorage on mount
   useEffect(() => {
@@ -69,10 +75,87 @@ export default function Editor({ value, onChange, placeholder = 'Write your mark
     return () => window.removeEventListener('keydown', handleGlobalKeyDown, true);
   }, [onChange]);
 
+  const handleImageUpload = async (file) => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const currentValue = textarea.value;
+
+    const uploadingText = `![Uploading ${file.name}...]()`;
+    const newValue = currentValue.substring(0, start) + uploadingText + currentValue.substring(end);
+    onChange(newValue);
+    
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + uploadingText.length, start + uploadingText.length);
+    }, 50);
+
+    try {
+      const url = await uploadImageToCloudinary(file);
+      const imgLink = `![${file.name}|100%xauto](${url})`;
+      
+      onChange(prevValue => prevValue.replace(uploadingText, imgLink));
+    } catch (err) {
+      console.error('Image upload failed:', err);
+      onChange(prevValue => prevValue.replace(uploadingText, `[Upload failed: ${file.name}]`));
+    }
+  };
+
+  const handlePaste = (e) => {
+    const items = e.clipboardData?.items;
+    if (items) {
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          const file = items[i].getAsFile();
+          if (file) {
+            e.preventDefault();
+            handleImageUpload(file);
+            break;
+          }
+        }
+      }
+    }
+  };
+
+  const handleDrop = (e) => {
+    const items = e.dataTransfer?.items;
+    if (items) {
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          const file = items[i].getAsFile();
+          if (file) {
+            e.preventDefault();
+            handleImageUpload(file);
+            break;
+          }
+        }
+      }
+    }
+  };
+
   // Handle Toolbar button executions
   const handleToolbarAction = (before, after, defaultText, id) => {
     const textarea = textareaRef.current;
     if (!textarea) return;
+
+    if (id === 'table') {
+      setShowTableModal(true);
+      return;
+    }
+    
+    if (id === 'dynamicAlert') {
+      setShowAlertModal(true);
+      return;
+    }
+
+    if (id === 'image') {
+      if (fileInputRef.current) {
+        fileInputRef.current.click();
+      }
+      return;
+    }
 
     const { newValue, cursorStart, cursorEnd } = applyCommand(textarea, before, after, defaultText);
     onChange(newValue);
@@ -132,8 +215,19 @@ export default function Editor({ value, onChange, placeholder = 'Write your mark
 
     if (slashIndex !== -1) {
       if (cmd.isSpecial) {
-        // Trigger templates overlay
-        setShowTemplates(true);
+        if (cmd.id === 'table') {
+          setShowTableModal(true);
+        } else if (cmd.id === 'dynamicAlert') {
+          setShowAlertModal(true);
+        } else if (cmd.id === 'image') {
+          if (fileInputRef.current) {
+            fileInputRef.current.click();
+          }
+        } else {
+          // Trigger templates overlay
+          setShowTemplates(true);
+        }
+        
         // Clean up the typed slash character from editor
         const cleanVal = valueText.substring(0, slashIndex) + valueText.substring(selectionStart);
         onChange(cleanVal);
@@ -219,7 +313,22 @@ export default function Editor({ value, onChange, placeholder = 'Write your mark
               value={value || ''}
               onChange={handleInputChange}
               onKeyDown={handleKeyDownEvent}
+              onPaste={handlePaste}
+              onDrop={handleDrop}
               placeholder={placeholder}
+            />
+
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              style={{ display: 'none' }} 
+              accept="image/*" 
+              onChange={(e) => {
+                if (e.target.files && e.target.files[0]) {
+                  handleImageUpload(e.target.files[0]);
+                  e.target.value = ''; // Reset input to allow re-uploading the same file
+                }
+              }} 
             />
 
             {/* Modern Fuzzy Matching Slash Command Menu */}
@@ -255,6 +364,19 @@ export default function Editor({ value, onChange, placeholder = 'Write your mark
         onClose={() => setShowTemplates(false)}
         onInsertAtCursor={handleInsertTemplateAtCursor}
         onOverwriteCanvas={handleOverwriteCanvas}
+      />
+      
+      {/* Dynamic Modals */}
+      <TableModal 
+        isOpen={showTableModal} 
+        onClose={() => setShowTableModal(false)} 
+        onInsert={handleInsertTemplateAtCursor} 
+      />
+      
+      <DynamicAlertModal 
+        isOpen={showAlertModal} 
+        onClose={() => setShowAlertModal(false)} 
+        onInsert={handleInsertTemplateAtCursor} 
       />
     </div>
   );

@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Code, Terminal, AlertTriangle, Info, Image, Link as LinkIcon, RefreshCw, Star } from 'lucide-react';
-
+import { Code, Terminal, AlertTriangle, Info, Image, Link as LinkIcon, RefreshCw, Star, Table } from 'lucide-react';
 const COMMANDS = [
   { id: 'code', label: 'Code Block', desc: 'Insert a fenced Javascript code block', shortcut: '/code', before: '```javascript\n', after: '\n```', defaultText: '// your code here', icon: <Code size={14} /> },
   { id: 'terminal', label: 'Terminal Command', desc: 'Insert a $ bash terminal input line', shortcut: '/terminal', before: '$ ', after: '', defaultText: 'ping -c 4 target.ctf', icon: <Terminal size={14} /> },
-  { id: 'dynamicAlert', label: 'Dynamic Alert Callout', desc: 'Insert a custom alert banner with your own title, color & icon', shortcut: '/alert', before: '> [!Dynamic Alert|#a855f7|📌]\n> ', after: '', defaultText: 'Enter your custom alert content here...', icon: <Info size={14} style={{ color: '#a855f7' }} /> },
+  { id: 'dynamicAlert', label: 'Dynamic Alert Callout', desc: 'Insert a custom alert banner with your own title, color & icon', shortcut: '/alert', isSpecial: true, icon: <Info size={14} style={{ color: '#a855f7' }} /> },
+  { id: 'table', label: 'Markdown Table', desc: 'Insert a customized markdown table', shortcut: '/table', isSpecial: true, icon: <Table size={14} /> },
   { id: 'stepCard', label: 'Step Card Breakdown', desc: 'Insert a sequential numbered step breakdown card', shortcut: '/step', before: '> [!STEP|1|Step Title]\n> ', after: '', defaultText: 'Enter step description here...', icon: <Star size={14} style={{ color: '#a855f7' }} /> },
-  { id: 'image', label: 'Image Attachment', desc: 'Insert a markdown image anchor', shortcut: '/image', before: '![', after: '](https://example.com/image.png)', defaultText: 'Image Description', icon: <Image size={14} /> },
+  { id: 'image', label: 'Image Attachment', desc: 'Upload and insert an image', shortcut: '/image', isSpecial: true, icon: <Image size={14} /> },
   { id: 'link', label: 'Hyperlink Anchor', desc: 'Insert a standard hyperlinked tag', shortcut: '/link', before: '[', after: '](https://example.com)', defaultText: 'Link Text', icon: <LinkIcon size={14} /> },
   { id: 'template', label: 'Walkthrough Templates', desc: 'Browse and load preset operational templates', shortcut: '/template', isSpecial: true, icon: <RefreshCw size={14} /> }
 ];
