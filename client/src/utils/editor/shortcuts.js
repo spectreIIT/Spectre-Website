@@ -3,7 +3,7 @@ import { applyCommand, applyIndent } from './editorCommands';
 /**
  * Handles professional IDE keyboard shortcuts inside the markdown editor
  */
-export const handleKeyDown = (event, textarea, onValueChange, onImageUploadShortcut) => {
+export const handleKeyDown = (event, textarea, onValueChange, onImageUploadShortcut, onTableShortcut) => {
   if (!textarea) return false;
 
   const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
@@ -83,6 +83,15 @@ export const handleKeyDown = (event, textarea, onValueChange, onImageUploadShort
         textarea.setSelectionRange(cursorStart, cursorEnd);
         textarea.focus();
       }, 0);
+    }
+    return true;
+  }
+
+  // Table (Ctrl/Cmd + Shift + T)
+  if (isCtrl && isShift && event.key.toLowerCase() === 't') {
+    event.preventDefault();
+    if (onTableShortcut) {
+      onTableShortcut();
     }
     return true;
   }

@@ -285,16 +285,32 @@ export const parseTerminalLines = (html) => {
 };
 
 export const parseTable = (block) => {
+  let blockWidth = 'max-content'; // Default to max-content to keep 2-column tables compact
+  if (block.match(/{width:\s*([^}]+)}/)) {
+    const match = block.match(/{width:\s*([^}]+)}/);
+    blockWidth = match[1].trim();
+    block = block.replace(match[0], '');
+  }
+
   const lines = block.split('\n').map(l => l.trim()).filter(l => l.startsWith('|') && l.endsWith('|'));
   if (lines.length < 2) return block; // Not a valid table
 
-  const headers = lines[0].split('|').slice(1, -1).map(h => h.trim());
-  const alignmentRow = lines[1].split('|').slice(1, -1).map(a => a.trim());
-  
-  // Must be a valid separator row (e.g. ---, :---, :---:, ---:)
-  if (!alignmentRow.every(a => a.replace(/:/g, '').replace(/-/g, '') === '')) {
-    return block;
+  // Dynamically find the separator row to support multi-level headers
+  let sepIdx = -1;
+  for (let i = 1; i < lines.length; i++) {
+    const rowContent = lines[i].slice(1, -1).replace(/\|/g, '').trim();
+    if (rowContent !== '' && rowContent.replace(/:/g, '').replace(/-/g, '').replace(/\s/g, '') === '') {
+      sepIdx = i;
+      break;
+    }
   }
+
+  // If no valid separator row found, return raw block
+  if (sepIdx === -1) return block;
+
+  const headerLines = lines.slice(0, sepIdx);
+  const alignmentRow = lines[sepIdx].split('|').slice(1, -1).map(a => a.trim());
+  const dataLines = lines.slice(sepIdx + 1);
 
   const alignments = alignmentRow.map(a => {
     if (a.startsWith(':') && a.endsWith(':')) return 'center';
@@ -302,29 +318,59 @@ export const parseTable = (block) => {
     return 'left'; // default
   });
 
-  const rows = lines.slice(2).map(line => {
-    return line.split('|').slice(1, -1).map(cell => cell.trim());
-  });
+  const parseRow = (line, isHeader) => {
+    const cells = line.split('|').slice(1, -1);
+    let rowHtml = `<tr style="transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'">`;
+    
+    let skip = 0;
+    const processedCells = [];
+    for (let i = 0; i < cells.length; i++) {
+      if (skip > 0) {
+        skip--;
+        continue;
+      }
+      
+      let content = cells[i].trim();
+      let colspan = 1;
 
-  let html = `<div style="overflow-x: auto; margin: 16px 0; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1);"><table style="width: 100%; border-collapse: collapse; text-align: left; background: transparent; color: #e2e8f0; font-size: 0.85rem;">`;
-  
-  // Theader
-  html += `<thead><tr>`;
-  headers.forEach((header, i) => {
-    const align = alignments[i] || 'left';
-    html += `<th style="padding: 10px 12px; font-weight: 700; text-align: ${align}; color: #fff; border: 1px solid rgba(255,255,255,0.1); border-bottom: 2px solid rgba(255,255,255,0.15);">${header}</th>`;
-  });
-  html += `</tr></thead>`;
+      // Check for explicit colspan like colspan=2
+      const colSpanMatch = content.match(/colspan=["']?([0-9]+)["']?/i);
+      if (colSpanMatch) {
+        colspan = parseInt(colSpanMatch[1], 10);
+        content = content.replace(colSpanMatch[0], '').trim();
+        skip = colspan - 1; // Skip the next dummy columns if they provided them
+      } else if (cells[i] === '' && processedCells.length > 0) {
+        // Implicit merge using ||
+        processedCells[processedCells.length - 1].colspan += 1;
+        continue;
+      }
 
-  // Tbody
-  html += `<tbody>`;
-  rows.forEach((row, rowIndex) => {
-    html += `<tr style="transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'">`;
-    row.forEach((cell, i) => {
-      const align = alignments[i] || 'left';
-      html += `<td style="padding: 8px 12px; text-align: ${align}; border: 1px solid rgba(255,255,255,0.1);">${cell}</td>`;
+      processedCells.push({ content, colspan, align: alignments[i] || 'left' });
+    }
+
+    processedCells.forEach((cell) => {
+      const tag = isHeader ? 'th' : 'td';
+      const colSpanAttr = cell.colspan > 1 ? ` colspan="${cell.colspan}"` : '';
+      const textAlignment = isHeader && cell.colspan > 1 ? 'center' : cell.align;
+      const style = isHeader 
+        ? `padding: 10px 12px; font-weight: 700; text-align: ${textAlignment}; color: #fff; border: 1px solid rgba(255,255,255,0.1); border-bottom: 2px solid rgba(255,255,255,0.15);` 
+        : `padding: 8px 12px; text-align: ${textAlignment}; border: 1px solid rgba(255,255,255,0.1);`;
+      rowHtml += `<${tag} style="${style}"${colSpanAttr}>${cell.content}</${tag}>`;
     });
-    html += `</tr>`;
+    rowHtml += `</tr>`;
+    return rowHtml;
+  };
+
+  let html = `<div style="overflow-x: auto; margin: 16px 0; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); width: ${blockWidth}; max-width: 100%;"><table style="width: 100%; border-collapse: collapse; text-align: left; background: transparent; color: #e2e8f0; font-size: 0.85rem;">`;
+  
+  html += `<thead>`;
+  headerLines.forEach(line => {
+    html += parseRow(line, true);
+  });
+  html += `</thead><tbody>`;
+  
+  dataLines.forEach(line => {
+    html += parseRow(line, false);
   });
   html += `</tbody></table></div>`;
 

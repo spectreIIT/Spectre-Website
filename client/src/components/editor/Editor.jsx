@@ -65,8 +65,11 @@ export default function Editor({ value, onChange, placeholder = 'Write your mark
       }
 
       // Add a 4th argument to trigger the file input from the shortcut
+      // Add a 5th argument to open the table modal
       const handled = handleKeyDown(e, textarea, onChange, () => {
         if (fileInputRef.current) fileInputRef.current.click();
+      }, () => {
+        setShowTableModal(true);
       });
       if (handled) {
         e.preventDefault();

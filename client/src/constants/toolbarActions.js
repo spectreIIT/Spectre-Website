@@ -92,7 +92,7 @@ export const TOOLBAR_ACTIONS = [
     before: '',
     after: '',
     defaultText: '',
-    shortcut: 'Ctrl+Alt+T'
+    shortcut: 'Ctrl+Shift+T'
   },
 
   // Code
