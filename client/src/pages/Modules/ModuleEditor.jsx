@@ -230,8 +230,11 @@ export default function ModuleEditor() {
   // Update Active Page title or content
   const updateActivePage = (patch) => {
     if (isReadOnly || typeof activePageIndex !== 'number') return;
-    const list = formData.pages.map((p, idx) => idx === activePageIndex ? { ...p, ...patch } : p);
-    updateForm({ pages: list });
+    setFormData(prev => {
+      const list = prev.pages.map((p, idx) => idx === activePageIndex ? { ...p, ...patch } : p);
+      return { ...prev, pages: list };
+    });
+    setHasUnsavedChanges(true);
   };
 
   // Move page index (Arrows)
