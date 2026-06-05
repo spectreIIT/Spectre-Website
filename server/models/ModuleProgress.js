@@ -29,6 +29,9 @@ const moduleProgressSchema = new mongoose.Schema({
   completedQuestionsDuringEvent: [{
     type: String
   }],
+  revealedHints: [{
+    type: String    // hint id strings
+  }],
   quizResults: [quizResultSchema],
   isCompleted: {
     type: Boolean,
@@ -37,6 +40,10 @@ const moduleProgressSchema = new mongoose.Schema({
   isCompletedDuringEvent: {
     type: Boolean,
     default: false
+  },
+  legacyEventBonus: {
+    type: Number,
+    default: 0
   },
   startedAt: {
     type: Date,

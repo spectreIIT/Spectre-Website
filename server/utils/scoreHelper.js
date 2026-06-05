@@ -40,7 +40,12 @@ export const recalculateUserScore = async (userId) => {
       user.solves = validSolvesArray;
     }
     
-    const challengeScore = globalSolves.reduce((total, solve) => total + (solve.challengeId.points || 0), 0);
+    const challengeScore = globalSolves.reduce((total, solve) => {
+      const pts = solve.awardedPointsAtSolveTime !== undefined 
+        ? solve.awardedPointsAtSolveTime 
+        : (solve.challengeId.points || 0);
+      return total + pts;
+    }, 0);
 
     // 2. Recalculate module score
     const allProgress = await ModuleProgress.find({ user: userId });
@@ -55,29 +60,48 @@ export const recalculateUserScore = async (userId) => {
     allProgress.forEach(prog => {
       const mod = dbModules.find(m => m._id.toString() === prog.moduleId);
       if (mod) {
+
+        let totalDeductions = 0;
+        const revealedHints = new Set(prog.revealedHints || []);
+        mod.pages.forEach(page => {
+          if (page.hints) {
+            page.hints.forEach(hint => {
+              if (revealedHints.has(hint.id)) {
+                totalDeductions += (hint.cost || 0);
+              }
+            });
+          }
+        });
+
         if (mod.pointsMode === 'page') {
+          let pagePoints = 0;
           const completedPages = new Set(prog.completedSections || []);
           const completedQuestions = new Set(prog.completedQuestions || []);
           
           mod.pages.forEach(page => {
             // Give points for completing the page itself
             if (completedPages.has(page.id)) {
-              dbModuleScore += (page.points || 0);
+              pagePoints += (page.points || 0);
             }
             // Give points for answering questions on the page
             if (page.questions && page.questions.length > 0) {
               page.questions.forEach(q => {
                 if (completedQuestions.has(q.id)) {
-                  dbModuleScore += (q.points || 0);
+                  pagePoints += (q.points || 0);
                 }
               });
             }
           });
+          dbModuleScore += Math.max(0, pagePoints - totalDeductions);
         } else {
           // 'module' mode
           if (prog.isCompleted) {
-            dbModuleScore += (mod.points || 0);
+            dbModuleScore += Math.max(0, (mod.points || 0) - totalDeductions);
           }
+        }
+        
+        if (prog.legacyEventBonus) {
+          dbModuleScore += prog.legacyEventBonus;
         }
       }
     });
@@ -206,27 +230,41 @@ export const recalculateEventScore = async (eventId, userId) => {
       if (mod) {
         let moduleFullyCompleted = false;
 
+        let totalDeductions = 0;
+        const revealedHints = new Set(prog.revealedHints || []);
+        mod.pages.forEach(page => {
+          if (page.hints) {
+            page.hints.forEach(hint => {
+              if (revealedHints.has(hint.id)) {
+                totalDeductions += (hint.cost || 0);
+              }
+            });
+          }
+        });
+
         if (mod.pointsMode === 'page') {
+          let pagePoints = 0;
           const completedPages = new Set(prog.completedSectionsDuringEvent || []);
           const completedQuestions = new Set(prog.completedQuestionsDuringEvent || []);
           mod.pages.forEach(page => {
             if (completedPages.has(page.id)) {
-              dbModuleScore += (page.points || 0);
+              pagePoints += (page.points || 0);
             }
             if (page.questions && page.questions.length > 0) {
               page.questions.forEach(q => {
                 if (completedQuestions.has(q.id)) {
-                  dbModuleScore += (q.points || 0);
+                  pagePoints += (q.points || 0);
                 }
               });
             }
           });
+          dbModuleScore += Math.max(0, pagePoints - totalDeductions);
           if (prog.isCompletedDuringEvent) {
              moduleFullyCompleted = true;
           }
         } else {
           if (prog.isCompletedDuringEvent) {
-            dbModuleScore += (mod.points || 0);
+            dbModuleScore += Math.max(0, (mod.points || 0) - totalDeductions);
             moduleFullyCompleted = true;
           }
         }

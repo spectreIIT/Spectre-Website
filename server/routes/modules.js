@@ -136,6 +136,27 @@ router.get('/', protect, async (req, res) => {
       let sanitizedPages = obj.pages || [];
       let sanitizedChallenge = obj.challenge || {};
 
+      if (req.user.role === 'Member') {
+        const revealedHints = new Set(prog?.revealedHints || []);
+        sanitizedPages = sanitizedPages.map(page => {
+          page.flag = undefined;
+          if (page.questions) {
+            page.questions.forEach(q => {
+              q.answer = undefined;
+            });
+          }
+          if (page.hints) {
+            page.hints.forEach(hint => {
+              if (!revealedHints.has(hint.id)) {
+                hint.text = undefined;
+              }
+            });
+          }
+          return page;
+        });
+        if (sanitizedChallenge) sanitizedChallenge.flag = undefined;
+      }
+
       // Supervisors are allowed to see hidden modules, no page sanitization needed
 
       return {
@@ -184,7 +205,31 @@ router.get('/:moduleId', protect, async (req, res) => {
     }
     // Supervisors are allowed to view draft modules created by other supervisors
     
-    res.json(mod);
+    let sanitizedMod = mod.toObject();
+    if (req.user.role === 'Member') {
+      const progress = await ModuleProgress.findOne({ user: req.user._id, moduleId: req.params.moduleId });
+      const revealedHints = new Set(progress?.revealedHints || []);
+
+      sanitizedMod.pages = sanitizedMod.pages.map(page => {
+        page.flag = undefined;
+        if (page.questions) {
+          page.questions.forEach(q => {
+            q.answer = undefined;
+          });
+        }
+        if (page.hints) {
+          page.hints.forEach(hint => {
+            if (!revealedHints.has(hint.id)) {
+              hint.text = undefined;
+            }
+          });
+        }
+        return page;
+      });
+      if (sanitizedMod.challenge) sanitizedMod.challenge.flag = undefined;
+    }
+    
+    res.json(sanitizedMod);
   } catch (err) {
     console.error('Error fetching module:', err);
     res.status(500).json({ message: 'Server error' });
@@ -198,7 +243,7 @@ router.get('/:moduleId/progress', protect, async (req, res) => {
       user: req.user._id,
       moduleId: req.params.moduleId
     });
-    res.json(progress || { completedSections: [], quizResults: [] });
+    res.json(progress || { completedSections: [], quizResults: [], revealedHints: [] });
   } catch (err) {
     console.error('Error fetching progress:', err);
     res.status(500).json({ message: 'Server error fetching progress' });
@@ -295,6 +340,57 @@ router.post('/:moduleId/progress/section', protect, async (req, res) => {
     res.json(currentProg);
   } catch (err) {
     res.status(500).json({ message: 'Server error saving section progress' });
+  }
+});
+
+// ── POST /api/modules/:moduleId/hints/:hintId/reveal ──────────────
+router.post('/:moduleId/hints/:hintId/reveal', protect, async (req, res) => {
+  try {
+    const { moduleId, hintId } = req.params;
+    
+    let progress = await ModuleProgress.findOne({ user: req.user._id, moduleId });
+    if (!progress) {
+       progress = new ModuleProgress({ user: req.user._id, moduleId, completedSections: [], completedQuestions: [], completedSectionsDuringEvent: [], completedQuestionsDuringEvent: [], revealedHints: [] });
+    }
+
+    if (!progress.revealedHints) {
+      progress.revealedHints = [];
+    }
+
+    let revealedHintText = '';
+    if (!progress.revealedHints.includes(hintId)) {
+      progress.revealedHints.push(hintId);
+      await progress.save();
+      
+      const mod = await Module.findById(moduleId);
+      if (mod) {
+        await recalculateUserScore(req.user._id);
+        if (mod.eventId) {
+          await recalculateEventScore(mod.eventId, req.user._id);
+        }
+        mod.pages.forEach(page => {
+          if (page.hints) {
+            const hint = page.hints.find(h => h.id === hintId);
+            if (hint) revealedHintText = hint.text;
+          }
+        });
+      }
+    } else {
+      const mod = await Module.findById(moduleId);
+      if (mod) {
+        mod.pages.forEach(page => {
+          if (page.hints) {
+            const hint = page.hints.find(h => h.id === hintId);
+            if (hint) revealedHintText = hint.text;
+          }
+        });
+      }
+    }
+
+    res.json({ message: 'Hint revealed', revealedHints: progress.revealedHints, hintText: revealedHintText });
+  } catch (err) {
+    console.error('Error revealing hint:', err);
+    res.status(500).json({ message: 'Server error revealing hint' });
   }
 });
 

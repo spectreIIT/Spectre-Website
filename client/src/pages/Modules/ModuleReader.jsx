@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, CheckCircle, BookOpen, Shield, Loader2, Info, Lightbulb, AlertTriangle, Download, ExternalLink, Send, Sparkles, Check, Play, Lock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, CheckCircle, BookOpen, Shield, Loader2, Info, Lightbulb, AlertTriangle, Download, ExternalLink, Send, Sparkles, Check, Play, Lock } from 'lucide-react';
 import '../../styles/pages/ModuleReader.css';
 import '../../styles/pages/ModuleContent.css';
 import { parseMarkdownToHTML } from '../../utils/editor/markdownParser';
@@ -54,6 +54,7 @@ export default function ModuleReader() {
   const [loading, setLoading] = useState(true);
   const [completedSections, setCompletedSections] = useState(new Set());
   const [completedQuestions, setCompletedQuestions] = useState(new Set());
+  const [revealedHints, setRevealedHints] = useState(new Set());
   const [saving, setSaving] = useState(false);
 
   // Challenge validation states
@@ -119,6 +120,7 @@ export default function ModuleReader() {
         const data = await res.json();
         setCompletedSections(new Set(data.completedSections || []));
         setCompletedQuestions(new Set(data.completedQuestions || []));
+        setRevealedHints(new Set(data.revealedHints || []));
       }
     } catch (err) {
       console.error('Error loading module progress:', err);
@@ -157,6 +159,37 @@ export default function ModuleReader() {
     } catch (_) {}
     setSaving(false);
   }, [moduleId]);
+
+  const handleRevealHint = async (hintId) => {
+    if (revealedHints.has(hintId)) return;
+    try {
+      const res = await fetch(`${API}/api/modules/${moduleId}/hints/${hintId}/reveal`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token()}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setRevealedHints(new Set(data.revealedHints || []));
+        if (data.hintText) {
+          setMod(prevMod => {
+            if (!prevMod) return prevMod;
+            const newMod = { ...prevMod };
+            if (newMod.pages) {
+              newMod.pages = newMod.pages.map(p => {
+                if (p.hints) {
+                  p.hints = p.hints.map(h => h.id === hintId ? { ...h, text: data.hintText } : h);
+                }
+                return p;
+              });
+            }
+            return newMod;
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Error revealing hint:', err);
+    }
+  };
 
   const handleFlagSubmit = async (e) => {
     e.preventDefault();
@@ -724,6 +757,79 @@ export default function ModuleReader() {
                       )}
                     </div>
                   </>
+                )}
+
+                {/* Hints Section */}
+                {activePage.hints && activePage.hints.length > 0 && (
+                  <div style={{ marginTop: '30px' }}>
+                    <h3 style={{ color: '#fff', fontSize: '1.2rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Lightbulb size={20} color="#f59e0b" /> Need Help? Hints
+                    </h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {activePage.hints.map((hint, idx) => {
+                        const isRevealed = revealedHints.has(hint.id);
+                        return (
+                          <div key={hint.id} style={{ backgroundColor: '#12141a', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '8px', overflow: 'hidden' }}>
+                            <div 
+                              onClick={() => {
+                                if (!isRevealed) {
+                                  if (hint.cost > 0) {
+                                    if(window.confirm(`Revealing this hint will deduct ${hint.cost} points from your total module score. Do you want to proceed?`)) {
+                                      handleRevealHint(hint.id);
+                                    }
+                                  } else {
+                                    handleRevealHint(hint.id);
+                                  }
+                                }
+                              }}
+                              style={{ 
+                                padding: '16px', 
+                                display: 'flex', 
+                                justifyContent: 'space-between', 
+                                alignItems: 'center', 
+                                cursor: isRevealed ? 'default' : 'pointer',
+                                backgroundColor: isRevealed ? 'rgba(255,255,255,0.02)' : 'rgba(245,158,11,0.05)',
+                                transition: 'background-color 0.2s'
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <div style={{ 
+                                  width: '28px', height: '28px', borderRadius: '50%', 
+                                  backgroundColor: isRevealed ? 'rgba(255,255,255,0.1)' : 'rgba(245,158,11,0.2)', 
+                                  display: 'flex', justifyContent: 'center', alignItems: 'center',
+                                  color: isRevealed ? '#94a3b8' : '#f59e0b',
+                                  fontWeight: 'bold', fontSize: '0.85rem'
+                                }}>
+                                  {idx + 1}
+                                </div>
+                                <span style={{ color: isRevealed ? '#cbd5e1' : '#f59e0b', fontWeight: 600 }}>
+                                  Hint {idx + 1}
+                                </span>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                {!isRevealed && hint.cost > 0 && (
+                                  <span style={{ color: '#ef4444', fontSize: '0.8rem', fontWeight: 700, backgroundColor: 'rgba(239,68,68,0.1)', padding: '4px 8px', borderRadius: '4px' }}>
+                                    Cost: -{hint.cost} pts
+                                  </span>
+                                )}
+                                {!isRevealed && hint.cost === 0 && (
+                                  <span style={{ color: '#10b981', fontSize: '0.8rem', fontWeight: 700, backgroundColor: 'rgba(16,185,129,0.1)', padding: '4px 8px', borderRadius: '4px' }}>
+                                    Free Hint
+                                  </span>
+                                )}
+                                {isRevealed ? <ChevronUp size={18} color="#64748b" /> : <ChevronDown size={18} color="#f59e0b" />}
+                              </div>
+                            </div>
+                            {isRevealed && (
+                              <div style={{ padding: '16px', borderTop: '1px solid rgba(255,255,255,0.05)', color: '#e2e8f0', fontSize: '0.95rem', lineHeight: '1.5' }}>
+                                {hint.text}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 )}
 
                 {/* Footer Controls */}

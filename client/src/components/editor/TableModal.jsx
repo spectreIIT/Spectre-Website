@@ -9,8 +9,8 @@ export default function TableModal({ isOpen, onClose, onInsert }) {
   if (!isOpen) return null;
 
   const handleInsert = () => {
-    let r = parseInt(rows) || 3;
-    let c = parseInt(cols) || 3;
+    let r = parseInt(rows) || 1;
+    let c = parseInt(cols) || 1;
     if (r < 1) r = 1;
     if (c < 1) c = 1;
 
@@ -36,8 +36,8 @@ export default function TableModal({ isOpen, onClose, onInsert }) {
   };
 
   const previewTable = () => {
-    let r = Math.min(parseInt(rows) || 3, 5); // Limit preview rows
-    let c = Math.min(parseInt(cols) || 3, 5); // Limit preview cols
+    let r = Math.min(Math.max(parseInt(rows) || 1, 1), 5); // Limit preview rows
+    let c = Math.min(Math.max(parseInt(cols) || 1, 1), 5); // Limit preview cols
     
     let alignStyle = 'left';
     if (alignment === 'center') alignStyle = 'center';
@@ -103,7 +103,7 @@ export default function TableModal({ isOpen, onClose, onInsert }) {
               <input 
                 type="number" 
                 value={rows} 
-                onChange={(e) => setRows(Math.max(1, parseInt(e.target.value) || 1))}
+                onChange={(e) => setRows(e.target.value)}
                 min="1"
                 max="50"
                 style={{
@@ -126,7 +126,7 @@ export default function TableModal({ isOpen, onClose, onInsert }) {
               <input 
                 type="number" 
                 value={cols} 
-                onChange={(e) => setCols(Math.max(1, parseInt(e.target.value) || 1))}
+                onChange={(e) => setCols(e.target.value)}
                 min="1"
                 max="20"
                 style={{

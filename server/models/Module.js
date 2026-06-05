@@ -8,6 +8,12 @@ const questionSchema = new mongoose.Schema({
   points: { type: Number, default: 0 }
 }, { _id: false });
 
+const hintSchema = new mongoose.Schema({
+  id: { type: String, required: true },
+  text: { type: String, required: true },
+  cost: { type: Number, default: 0 }
+}, { _id: false });
+
 const pageSchema = new mongoose.Schema({
   id: { type: String, required: true },
   title: { type: String, required: true },
@@ -25,6 +31,7 @@ const pageSchema = new mongoose.Schema({
       type: { type: String, enum: ['file', 'link'], default: 'file' }
     }
   ],
+  hints: [hintSchema],
   solves: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
 }, { _id: false });
 

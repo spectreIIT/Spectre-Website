@@ -23,8 +23,8 @@ async function archiveEventAndMigrateContent(event) {
     // 1. Clone Challenges to Global
     const challenges = await Challenge.find({ eventId: event._id });
     for (const c of challenges) {
-       const existingGlobal = await Challenge.findOne({ title: c.title, eventId: null });
-       if (!existingGlobal) {
+       let globalChallenge = await Challenge.findOne({ title: c.title, eventId: null });
+       if (!globalChallenge) {
          const newPoints = Math.round((c.currentPoints || c.points) * 0.5);
          const cObj = c.toObject();
          delete cObj._id;
@@ -40,15 +40,41 @@ async function archiveEventAndMigrateContent(event) {
              solves: 0,
              createdAt: Date.now()
          });
-         await newChallenge.save();
+         globalChallenge = await newChallenge.save();
+       }
+
+       // Migrate user solves for this challenge
+       const correctSubmissions = await Submission.find({ challenge: c._id, isCorrect: true, isPractice: { $ne: true } });
+       for (const sub of correctSubmissions) {
+          const user = await User.findById(sub.user);
+          if (user) {
+             const hasGlobalSolve = user.solves.some(s => s.challengeId && s.challengeId.toString() === globalChallenge._id.toString());
+             if (!hasGlobalSolve) {
+                const oldSolve = user.solves.find(s => s.challengeId && s.challengeId.toString() === c._id.toString());
+                const awardedPoints = oldSolve ? oldSolve.awardedPointsAtSolveTime : (sub.awardedPoints || c.points);
+                
+                user.solves.push({
+                   challengeId: globalChallenge._id,
+                   solvedAt: sub.timestamp,
+                   attempts: sub.attemptsBeforeSolve ? sub.attemptsBeforeSolve + 1 : 1,
+                   hintsUsed: sub.hintsUsed || [],
+                   awardedPointsAtSolveTime: awardedPoints,
+                   challengePointsBeforeSolve: awardedPoints,
+                   challengePointsAfterSolve: awardedPoints,
+                   rank: null
+                });
+                await user.save();
+             }
+          }
        }
     }
 
     // 2. Clone Modules to Global
     const modules = await Module.find({ eventId: event._id });
+    const ModuleProgress = mongoose.model('ModuleProgress');
     for (const m of modules) {
-       const existingGlobal = await Module.findOne({ title: m.title, eventId: null });
-       if (!existingGlobal) {
+       let globalModule = await Module.findOne({ title: m.title, eventId: null });
+       if (!globalModule) {
          const modObj = m.toObject();
          delete modObj._id;
          
@@ -72,7 +98,76 @@ async function archiveEventAndMigrateContent(event) {
              status: 'active',
              createdAt: Date.now()
          });
-         await newModule.save();
+         globalModule = await newModule.save();
+       }
+
+       // Migrate Module Progress
+       const progresses = await ModuleProgress.find({ moduleId: m._id.toString() });
+       for (const prog of progresses) {
+          if (!prog.isCompletedDuringEvent && (!prog.completedSectionsDuringEvent || prog.completedSectionsDuringEvent.length === 0)) {
+             continue; // No progress made during the event
+          }
+          const existingGlobalProg = await ModuleProgress.findOne({ user: prog.user, moduleId: globalModule._id.toString() });
+          if (!existingGlobalProg) {
+             let eventPointsEarned = 0;
+             let globalPointsEarned = 0;
+             let totalDeductions = 0;
+             const revealedHints = new Set(prog.revealedHints || []);
+             m.pages.forEach(page => {
+               if (page.hints) {
+                 page.hints.forEach(hint => {
+                   if (revealedHints.has(hint.id)) {
+                     totalDeductions += (hint.cost || 0);
+                   }
+                 });
+               }
+             });
+
+             if (m.pointsMode === 'page') {
+                let pagePoints = 0;
+                let globalPagePoints = 0;
+                const completedPages = new Set(prog.completedSectionsDuringEvent || []);
+                const completedQuestions = new Set(prog.completedQuestionsDuringEvent || []);
+                
+                m.pages.forEach(page => {
+                   if (completedPages.has(page.id)) {
+                      pagePoints += (page.points || 0);
+                      // Global points were halved
+                      globalPagePoints += Math.round((page.points || 0) * 0.5);
+                   }
+                   if (page.questions && page.questions.length > 0) {
+                      page.questions.forEach(q => {
+                         if (completedQuestions.has(q.id)) {
+                            pagePoints += (q.points || 0);
+                            globalPagePoints += Math.round((q.points || 0) * 0.5);
+                         }
+                      });
+                   }
+                });
+                eventPointsEarned = Math.max(0, pagePoints - totalDeductions);
+                globalPointsEarned = Math.max(0, globalPagePoints - totalDeductions);
+             } else {
+                if (prog.isCompletedDuringEvent) {
+                   eventPointsEarned = Math.max(0, (m.points || 0) - totalDeductions);
+                   globalPointsEarned = Math.max(0, Math.round((m.points || 0) * 0.5) - totalDeductions);
+                }
+             }
+
+             if (eventPointsEarned > 0 || prog.isCompletedDuringEvent) {
+                const newProg = new ModuleProgress({
+                   user: prog.user,
+                   moduleId: globalModule._id.toString(),
+                   completedSections: prog.completedSectionsDuringEvent || [],
+                   completedQuestions: prog.completedQuestionsDuringEvent || [],
+                   revealedHints: prog.revealedHints || [],
+                   quizResults: prog.quizResults || [],
+                   isCompleted: prog.isCompletedDuringEvent,
+                   lastActivityAt: prog.lastActivityAt,
+                   legacyEventBonus: Math.max(0, eventPointsEarned - globalPointsEarned)
+                });
+                await newProg.save();
+             }
+          }
        }
     }
   } catch (err) {
