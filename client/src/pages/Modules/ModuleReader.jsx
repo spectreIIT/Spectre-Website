@@ -505,7 +505,7 @@ export default function ModuleReader() {
                                   />
                                 );
                               }
-                              return <span key={i} dangerouslySetInnerHTML={{ __html: part }} />;
+                              return <div key={i} dangerouslySetInnerHTML={{ __html: part }} />;
                             });
                           })()}
                         </div>
@@ -808,10 +808,30 @@ export default function ModuleReader() {
 
                     <div className="mr-article" onClick={handlePaneClick}>
                       {activePage.content ? (
-                        <div 
-                          className="markdown-preview"
-                          dangerouslySetInnerHTML={{ __html: parseMarkdownToHTML(activePage.content) }}
-                        />
+                        <div className="markdown-preview">
+                          {(() => {
+                            const html = parseMarkdownToHTML(activePage.content);
+                            const parts = html.split(/({{HINT:\s*[a-zA-Z0-9_-]+}})/g);
+                            
+                            return parts.map((part, i) => {
+                              const match = part.match(/{{HINT:\s*([a-zA-Z0-9_-]+)}}/);
+                              if (match) {
+                                const hintId = match[1];
+                                const hintData = activePage.hints?.find(h => h.id === hintId);
+                                if (!hintData) return null;
+                                return (
+                                  <InlineHint 
+                                    key={i} 
+                                    hint={hintData} 
+                                    isRevealed={revealedHints.has(hintId)} 
+                                    onReveal={() => handleRevealHint(hintId)} 
+                                  />
+                                );
+                              }
+                              return <div key={i} dangerouslySetInnerHTML={{ __html: part }} />;
+                            });
+                          })()}
+                        </div>
                       ) : (
                         <p style={{ color: '#64748b', fontStyle: 'italic' }}>This page does not contain any content specifications.</p>
                       )}
@@ -922,10 +942,31 @@ export default function ModuleReader() {
                   🏁 Final Lab: {mod.challenge.title}
                 </h1>
 
-                <div className="mr-article">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={MarkdownComponents}>
-                    {mod.challenge.description || 'Instructions pending specifications.'}
-                  </ReactMarkdown>
+                <div className="mr-article" onClick={handlePaneClick}>
+                  <div className="markdown-preview">
+                    {(() => {
+                      const html = parseMarkdownToHTML(mod.challenge.description || 'Instructions pending specifications.');
+                      const parts = html.split(/({{HINT:\s*[a-zA-Z0-9_-]+}})/g);
+                      
+                      return parts.map((part, i) => {
+                        const match = part.match(/{{HINT:\s*([a-zA-Z0-9_-]+)}}/);
+                        if (match) {
+                          const hintId = match[1];
+                          const hintData = mod.challenge.hints?.find(h => h.id === hintId);
+                          if (!hintData) return null;
+                          return (
+                            <InlineHint 
+                              key={i} 
+                              hint={hintData} 
+                              isRevealed={revealedHints.has(hintId)} 
+                              onReveal={() => handleRevealHint(hintId)} 
+                            />
+                          );
+                        }
+                        return <div key={i} dangerouslySetInnerHTML={{ __html: part }} />;
+                      });
+                    })()}
+                  </div>
 
                   {/* Attached Lab Files */}
                   {mod.challenge.files && mod.challenge.files.length > 0 && (
