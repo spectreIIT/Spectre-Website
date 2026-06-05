@@ -43,6 +43,46 @@ const toProxyUrl = (url) => {
   }
 };
 
+const InlineHint = ({ hint, isRevealed, onReveal }) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const toggleHint = () => {
+    if (!isRevealed) {
+      if (hint.cost > 0) {
+        if (window.confirm(`This hint costs ${hint.cost} points. Reveal it?`)) {
+          onReveal();
+          setIsOpen(true);
+        }
+      } else {
+        onReveal();
+        setIsOpen(true);
+      }
+    } else {
+      setIsOpen(!isOpen);
+    }
+  };
+
+  return (
+    <div style={{ margin: '12px 0', padding: '10px 14px', background: 'rgba(168, 85, 247, 0.05)', border: '1px solid rgba(168, 85, 247, 0.2)', borderRadius: '6px', fontSize: '0.88rem' }}>
+      <div 
+        onClick={toggleHint}
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', color: '#cbd5e1', fontWeight: '600' }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Lightbulb size={16} color="#a855f7" /> 
+          Hint {hint.cost > 0 && !isRevealed ? <span style={{ color: '#ef4444', fontSize: '0.75rem', padding: '2px 6px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '4px', marginLeft: '6px' }}>-{hint.cost} pts</span> : ''}
+        </div>
+        {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+      </div>
+      {isOpen && isRevealed && (
+        <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px dashed rgba(168, 85, 247, 0.2)', color: '#94a3b8', lineHeight: '1.5' }}>
+          {hint.text || <span style={{ fontStyle: 'italic' }}>Loading hint...</span>}
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default function ModuleReader() {
   const { moduleId, sectionIdx: sectionIdxParam } = useParams();
   const navigate = useNavigate();
@@ -445,10 +485,30 @@ export default function ModuleReader() {
 
                     <div className="mr-article" onClick={handlePaneClick}>
                       {activePage.content ? (
-                        <div 
-                          className="markdown-preview"
-                          dangerouslySetInnerHTML={{ __html: parseMarkdownToHTML(activePage.content) }}
-                        />
+                        <div className="markdown-preview">
+                          {(() => {
+                            const html = parseMarkdownToHTML(activePage.content);
+                            const parts = html.split(/({{HINT:\s*[a-zA-Z0-9_-]+}})/g);
+                            
+                            return parts.map((part, i) => {
+                              const match = part.match(/{{HINT:\s*([a-zA-Z0-9_-]+)}}/);
+                              if (match) {
+                                const hintId = match[1];
+                                const hintData = activePage.hints?.find(h => h.id === hintId);
+                                if (!hintData) return null;
+                                return (
+                                  <InlineHint 
+                                    key={i} 
+                                    hint={hintData} 
+                                    isRevealed={revealedHints.has(hintId)} 
+                                    onReveal={() => handleRevealHint(hintId)} 
+                                  />
+                                );
+                              }
+                              return <span key={i} dangerouslySetInnerHTML={{ __html: part }} />;
+                            });
+                          })()}
+                        </div>
                       ) : (
                         <p style={{ color: '#64748b', fontStyle: 'italic' }}>Instructions pending specifications.</p>
                       )}
@@ -759,78 +819,7 @@ export default function ModuleReader() {
                   </>
                 )}
 
-                {/* Hints Section */}
-                {activePage.hints && activePage.hints.length > 0 && (
-                  <div style={{ marginTop: '30px' }}>
-                    <h3 style={{ color: '#fff', fontSize: '1.2rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <Lightbulb size={20} color="#f59e0b" /> Need Help? Hints
-                    </h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      {activePage.hints.map((hint, idx) => {
-                        const isRevealed = revealedHints.has(hint.id);
-                        return (
-                          <div key={hint.id} style={{ backgroundColor: '#12141a', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '8px', overflow: 'hidden' }}>
-                            <div 
-                              onClick={() => {
-                                if (!isRevealed) {
-                                  if (hint.cost > 0) {
-                                    if(window.confirm(`Revealing this hint will deduct ${hint.cost} points from your total module score. Do you want to proceed?`)) {
-                                      handleRevealHint(hint.id);
-                                    }
-                                  } else {
-                                    handleRevealHint(hint.id);
-                                  }
-                                }
-                              }}
-                              style={{ 
-                                padding: '16px', 
-                                display: 'flex', 
-                                justifyContent: 'space-between', 
-                                alignItems: 'center', 
-                                cursor: isRevealed ? 'default' : 'pointer',
-                                backgroundColor: isRevealed ? 'rgba(255,255,255,0.02)' : 'rgba(245,158,11,0.05)',
-                                transition: 'background-color 0.2s'
-                              }}
-                            >
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <div style={{ 
-                                  width: '28px', height: '28px', borderRadius: '50%', 
-                                  backgroundColor: isRevealed ? 'rgba(255,255,255,0.1)' : 'rgba(245,158,11,0.2)', 
-                                  display: 'flex', justifyContent: 'center', alignItems: 'center',
-                                  color: isRevealed ? '#94a3b8' : '#f59e0b',
-                                  fontWeight: 'bold', fontSize: '0.85rem'
-                                }}>
-                                  {idx + 1}
-                                </div>
-                                <span style={{ color: isRevealed ? '#cbd5e1' : '#f59e0b', fontWeight: 600 }}>
-                                  Hint {idx + 1}
-                                </span>
-                              </div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                {!isRevealed && hint.cost > 0 && (
-                                  <span style={{ color: '#ef4444', fontSize: '0.8rem', fontWeight: 700, backgroundColor: 'rgba(239,68,68,0.1)', padding: '4px 8px', borderRadius: '4px' }}>
-                                    Cost: -{hint.cost} pts
-                                  </span>
-                                )}
-                                {!isRevealed && hint.cost === 0 && (
-                                  <span style={{ color: '#10b981', fontSize: '0.8rem', fontWeight: 700, backgroundColor: 'rgba(16,185,129,0.1)', padding: '4px 8px', borderRadius: '4px' }}>
-                                    Free Hint
-                                  </span>
-                                )}
-                                {isRevealed ? <ChevronUp size={18} color="#64748b" /> : <ChevronDown size={18} color="#f59e0b" />}
-                              </div>
-                            </div>
-                            {isRevealed && (
-                              <div style={{ padding: '16px', borderTop: '1px solid rgba(255,255,255,0.05)', color: '#e2e8f0', fontSize: '0.95rem', lineHeight: '1.5' }}>
-                                {hint.text}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
+
 
                 {/* Footer Controls */}
                 <footer className="mr-footer-nav" style={{ marginTop: '40px' }}>

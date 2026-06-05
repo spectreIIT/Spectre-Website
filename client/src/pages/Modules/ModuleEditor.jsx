@@ -1077,7 +1077,17 @@ export default function ModuleEditor() {
                           />
                         </div>
                         {!isReadOnly && (
-                          <div style={{ display: 'flex', alignItems: 'flex-end', height: '100%' }}>
+                          <div style={{ display: 'flex', alignItems: 'flex-end', height: '100%', gap: '8px' }}>
+                            <button 
+                              type="button" 
+                              onClick={() => {
+                                const newContent = (activePage.content || '') + `\n\n{{HINT: ${hint.id}}}\n\n`;
+                                updateActivePage({ content: newContent });
+                              }}
+                              style={{ background: 'rgba(168, 85, 247, 0.1)', border: '1px solid rgba(168, 85, 247, 0.2)', color: '#a855f7', cursor: 'pointer', padding: '0 12px', borderRadius: '8px', height: '42px', display: 'flex', alignItems: 'center', marginTop: '18px', fontSize: '0.8rem', fontWeight: 600 }}
+                            >
+                              Insert Inline
+                            </button>
                             <button 
                               type="button" 
                               onClick={() => {
