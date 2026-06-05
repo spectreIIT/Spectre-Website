@@ -317,31 +317,6 @@ export const refreshToken = async (req, res) => {
       return res.status(403).json({ message: 'Invalid refresh token' });
     }
 
-    // Determine old cookie maxAge or default to 1 day
-    // We will check if "keep me logged in" was used, maybe by storing object { token, isRemembered }
-    // For simplicity, we just renew for 30 days if it was 30 days, else 1 day.
-    // If not stored, we default to 1 day. Since we didn't store it, we can just use 1 day unless specified.
-    // Wait, the prompt says "extend refresh token expiration window".
-    // Mongoose doesn't tell us original expiration. Let's just grant 1 day, or 30 days if requested.
-    // We'll just grant 30 days if they're active, or 1 day. Let's use 1 day as sliding window unless "keep me logged in" was 30d.
-    // A quick hack: look at req.cookies maxAge? Not accessible. Let's use 30 days for now if we don't know, or we can store the type.
-    // Actually, let's just make sliding window 30 days to be safe and let the browser clear cookies on close if it was a session cookie.
-    // Wait, res.cookie sets maxAge. If we used maxAge: 1 day, it's 1 day.
-    const maxAge = 30 * 24 * 60 * 60 * 1000; // Let's simplify to 30 days rolling.
-
-    // Rotate token
-    const newRefreshToken = generateRefreshToken();
-    user.refreshTokens = user.refreshTokens.filter(t => t !== token);
-    user.refreshTokens.push(newRefreshToken);
-    await user.save();
-
-    res.cookie('refreshToken', newRefreshToken, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'none',
-      maxAge
-    });
-
     const accessToken = generateAccessToken(user._id);
 
     res.json({
