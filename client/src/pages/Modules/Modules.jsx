@@ -278,7 +278,9 @@ export default function Modules() {
               <p className="module-detail-desc">{activeModule.description}</p>
               <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginTop: '6px', flexWrap: 'wrap' }}>
                 <span style={{ fontSize: '0.85rem', color: '#00f0ff', background: 'rgba(0,240,255,0.1)', border: '1px solid rgba(0,240,255,0.25)', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>
-                  {activeModule.pointsMode === 'page' ? `${activeModule.earnedPoints || 0}/${activeModule.points || 0}` : (activeModule.points || 100)} PTS
+                  {activeModule.pointsMode === 'page' 
+                    ? `${activeModule.earnedPoints || 0}/${activeModule.points || 0}` 
+                    : (isActiveModuleFinished ? `${activeModule.earnedPoints !== undefined ? activeModule.earnedPoints : activeModule.points}/${activeModule.points || 100}` : (activeModule.points || 100))} PTS
                 </span>
               </div>
               

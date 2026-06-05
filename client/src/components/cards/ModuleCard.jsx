@@ -60,7 +60,9 @@ const ModuleCard = ({ mod, isPrivileged, prereqLabel, pct, onClick }) => {
       <div className="module-card-meta-row">
         <span className="module-meta">{mod.pages?.length || mod.sections?.length || 0} Pages</span>
         <span className="module-meta" style={{ color: '#00f0ff', fontWeight: 600 }}>
-          {mod.pointsMode === 'page' ? `${mod.earnedPoints || 0}/${mod.points || 0}` : (mod.points || 100)} pts
+          {mod.pointsMode === 'page' 
+            ? `${mod.earnedPoints || 0}/${mod.points || 0}` 
+            : (pct === 100 ? `${mod.earnedPoints !== undefined ? mod.earnedPoints : mod.points}/${mod.points || 100}` : (mod.points || 100))} pts
         </span>
         {pct > 0 && (
           <span className="module-meta" style={{ color: pct === 100 ? '#22c55e' : mod.color }}>

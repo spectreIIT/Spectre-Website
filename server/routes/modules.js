@@ -92,6 +92,24 @@ router.get('/', protect, async (req, res) => {
       const completionPct = totalSections > 0 ? Math.round((completedCount / totalSections) * 100) : 0;
       
       let earnedPoints = 0;
+      let totalDeductions = 0;
+      const revealedHints = new Set(prog?.revealedHints || []);
+      
+      if (mod.pages) {
+        mod.pages.forEach(p => {
+          if (p.hints) {
+            p.hints.forEach(h => {
+              if (revealedHints.has(h.id)) totalDeductions += (h.cost || 0);
+            });
+          }
+        });
+      }
+      if (mod.challenge && mod.challenge.hints) {
+        mod.challenge.hints.forEach(h => {
+          if (revealedHints.has(h.id)) totalDeductions += (h.cost || 0);
+        });
+      }
+
       if (mod.pointsMode === 'page') {
         if (mod.pages) {
           mod.pages.forEach(p => {
@@ -103,8 +121,11 @@ router.get('/', protect, async (req, res) => {
             }
           });
         }
+        earnedPoints = Math.max(0, earnedPoints - totalDeductions);
       } else {
-        if (isModuleDone || prog?.isCompleted) earnedPoints = mod.points || 0;
+        if (isModuleDone || prog?.isCompleted) {
+          earnedPoints = Math.max(0, (mod.points || 0) - totalDeductions);
+        }
       }
 
       // Prerequisite check
