@@ -1,111 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, CheckCircle, BookOpen, Shield, Loader2, Info, Lightbulb, AlertTriangle, Download, ExternalLink, Send, Sparkles, Check, Play, Lock } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { atomDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
-
 import '../../styles/pages/ModuleReader.css';
 import '../../styles/pages/ModuleContent.css';
-
-// Custom Markdown Components
-const MarkdownComponents = {
-  h1: ({ children }) => <h1>{children}</h1>,
-  h2: ({ children }) => <h2>{children}</h2>,
-  h3: ({ children }) => <h3>{children}</h3>,
-  code(props) {
-    const { children, className, node, ...rest } = props;
-    const match = /language-(\w+)/.exec(className || '');
-    const isTerminal = match && match[1] === 'terminal';
-    
-    if (match && !isTerminal) {
-      return (
-        <div className="mr-code-block">
-          <div className="mr-code-header">
-            <span className="mr-code-lang">{match[1]}</span>
-          </div>
-          <SyntaxHighlighter
-            style={atomDark}
-            language={match[1]}
-            PreTag="div"
-          >
-            {String(children).replace(/\n$/, '')}
-          </SyntaxHighlighter>
-        </div>
-      );
-    }
-
-    if (isTerminal) {
-      return (
-        <div className="mr-terminal-container">
-          <div className="mr-terminal-header">
-            <div className="mr-terminal-dots">
-              <span className="dot red"></span>
-              <span className="dot yellow"></span>
-              <span className="dot green"></span>
-            </div>
-            <div className="mr-terminal-title">bash</div>
-          </div>
-          <div className="mr-terminal">
-            {String(children).split('\n').map((line, i) => (
-              <div key={i}>
-                <span className="mr-terminal-prompt">$</span> {line}
-              </div>
-            ))}
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <code className="mr-highlight" {...props}>
-        {children}
-      </code>
-    );
-  },
-  blockquote: ({ children }) => {
-    const content = children[1]?.props?.children?.[0];
-    if (typeof content === 'string') {
-      if (content.startsWith('Tip:')) {
-        return (
-          <div className="mr-box tip">
-            <Lightbulb className="mr-box-icon" size={20} />
-            <div className="mr-box-content">{children}</div>
-          </div>
-        );
-      }
-      if (content.startsWith('Note:')) {
-        return (
-          <div className="mr-box note">
-            <Info className="mr-box-icon" size={20} />
-            <div className="mr-box-content">{children}</div>
-          </div>
-        );
-      }
-      if (content.startsWith('Warning:')) {
-        return (
-          <div className="mr-box warning">
-            <AlertTriangle className="mr-box-icon" size={20} />
-            <div className="mr-box-content">{children}</div>
-          </div>
-        );
-      }
-    }
-    return <blockquote>{children}</blockquote>;
-  },
-  table: ({ children }) => (
-    <div className="mr-table-wrap">
-      <table className="mr-table">{children}</table>
-    </div>
-  ),
-  img: ({ src, alt }) => (
-    <figure className="mr-figure">
-      <img src={src} alt={alt} className="mr-image" />
-      {alt && <figcaption className="mr-caption">{alt}</figcaption>}
-    </figure>
-  )
-};
+import { parseMarkdownToHTML } from '../../utils/editor/markdownParser';
 
 const API = (import.meta.env.VITE_API_URL || "http://localhost:5000");
 const token = () => localStorage.getItem('token');
@@ -167,6 +65,50 @@ export default function ModuleReader() {
   const [questionAnswers, setQuestionAnswers] = useState({});
   const [questionStatus, setQuestionStatus] = useState({}); // { qId: { loading, error, success } }
   const [showEmbedFor, setShowEmbedFor] = useState(null);
+
+  const handlePaneClick = useCallback((e) => {
+    const btn = e.target.closest('.copy-code-btn');
+    if (btn) {
+      const encodedCode = btn.getAttribute('data-code');
+      if (encodedCode) {
+        try {
+          const codeText = decodeURIComponent(encodedCode);
+          navigator.clipboard.writeText(codeText);
+          
+          const originalText = btn.innerHTML;
+          const isIconOnly = originalText.includes('<svg') || btn.tagName.toLowerCase() === 'svg';
+          
+          if (isIconOnly) {
+            btn.innerHTML = `
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            `;
+            btn.style.color = '#10b981';
+            
+            setTimeout(() => {
+              btn.innerHTML = originalText;
+              btn.style.color = '';
+            }, 2000);
+          } else {
+            btn.innerHTML = 'Copied!';
+            btn.style.color = '#10b981';
+            btn.style.borderColor = 'rgba(16, 185, 129, 0.2)';
+            btn.style.background = 'rgba(16, 185, 129, 0.05)';
+            
+            setTimeout(() => {
+              btn.innerHTML = originalText;
+              btn.style.color = '';
+              btn.style.borderColor = '';
+              btn.style.background = '';
+            }, 2000);
+          }
+        } catch (err) {
+          console.error('Failed to copy code:', err);
+        }
+      }
+    }
+  }, []);
 
   const loadModuleProgress = useCallback(async () => {
     try {
@@ -468,11 +410,12 @@ export default function ModuleReader() {
                       🏁 Lab: {activePage.title}
                     </h1>
 
-                    <div className="mr-article">
+                    <div className="mr-article" onClick={handlePaneClick}>
                       {activePage.content ? (
-                        <ReactMarkdown remarkPlugins={[remarkGfm]} components={MarkdownComponents}>
-                          {activePage.content}
-                        </ReactMarkdown>
+                        <div 
+                          className="markdown-preview"
+                          dangerouslySetInnerHTML={{ __html: parseMarkdownToHTML(activePage.content) }}
+                        />
                       ) : (
                         <p style={{ color: '#64748b', fontStyle: 'italic' }}>Instructions pending specifications.</p>
                       )}
@@ -770,11 +713,12 @@ export default function ModuleReader() {
                       {activePage.title}
                     </h1>
 
-                    <div className="mr-article">
+                    <div className="mr-article" onClick={handlePaneClick}>
                       {activePage.content ? (
-                        <ReactMarkdown remarkPlugins={[remarkGfm]} components={MarkdownComponents}>
-                          {activePage.content}
-                        </ReactMarkdown>
+                        <div 
+                          className="markdown-preview"
+                          dangerouslySetInnerHTML={{ __html: parseMarkdownToHTML(activePage.content) }}
+                        />
                       ) : (
                         <p style={{ color: '#64748b', fontStyle: 'italic' }}>This page does not contain any content specifications.</p>
                       )}
