@@ -154,7 +154,16 @@ router.get('/', protect, async (req, res) => {
           }
           return page;
         });
-        if (sanitizedChallenge) sanitizedChallenge.flag = undefined;
+        if (sanitizedChallenge) {
+          sanitizedChallenge.flag = undefined;
+          if (sanitizedChallenge.hints) {
+            sanitizedChallenge.hints.forEach(hint => {
+              if (!revealedHints.has(hint.id)) {
+                hint.text = undefined;
+              }
+            });
+          }
+        }
       }
 
       // Supervisors are allowed to see hidden modules, no page sanitization needed
@@ -226,7 +235,16 @@ router.get('/:moduleId', protect, async (req, res) => {
         }
         return page;
       });
-      if (sanitizedMod.challenge) sanitizedMod.challenge.flag = undefined;
+      if (sanitizedMod.challenge) {
+        sanitizedMod.challenge.flag = undefined;
+        if (sanitizedMod.challenge.hints) {
+          sanitizedMod.challenge.hints.forEach(hint => {
+            if (!revealedHints.has(hint.id)) {
+              hint.text = undefined;
+            }
+          });
+        }
+      }
     }
     
     res.json(sanitizedMod);
@@ -374,6 +392,10 @@ router.post('/:moduleId/hints/:hintId/reveal', protect, async (req, res) => {
             if (hint) revealedHintText = hint.text;
           }
         });
+        if (!revealedHintText && mod.challenge?.hints) {
+          const hint = mod.challenge.hints.find(h => h.id === hintId);
+          if (hint) revealedHintText = hint.text;
+        }
       }
     } else {
       const mod = await Module.findById(moduleId);
@@ -384,6 +406,10 @@ router.post('/:moduleId/hints/:hintId/reveal', protect, async (req, res) => {
             if (hint) revealedHintText = hint.text;
           }
         });
+        if (!revealedHintText && mod.challenge?.hints) {
+          const hint = mod.challenge.hints.find(h => h.id === hintId);
+          if (hint) revealedHintText = hint.text;
+        }
       }
     }
 

@@ -72,6 +72,13 @@ export const recalculateUserScore = async (userId) => {
             });
           }
         });
+        if (mod.challenge && mod.challenge.hints) {
+          mod.challenge.hints.forEach(hint => {
+            if (revealedHints.has(hint.id)) {
+              totalDeductions += (hint.cost || 0);
+            }
+          });
+        }
 
         if (mod.pointsMode === 'page') {
           let pagePoints = 0;

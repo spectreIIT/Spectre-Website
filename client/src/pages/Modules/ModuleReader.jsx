@@ -266,6 +266,9 @@ export default function ModuleReader() {
                 return p;
               });
             }
+            if (newMod.challenge && newMod.challenge.hints) {
+              newMod.challenge.hints = newMod.challenge.hints.map(h => h.id === hintId ? { ...h, text: data.hintText } : h);
+            }
             return newMod;
           });
         }
