@@ -45,6 +45,7 @@ const moduleChallengeSchema = new mongoose.Schema({
   description: { type: String, default: '' },
   files: [fileSchema],
   flag: { type: String, default: '' },
+  hints: [hintSchema],
   solves: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
 }, { _id: false });
 
