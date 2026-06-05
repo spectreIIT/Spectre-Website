@@ -1001,6 +1001,8 @@ export default function ModuleEditor() {
                         onChange={(val) => updateActivePage({ content: val })}
                         draftKey={null}
                         placeholder="Instruct the student on how to deploy local resources or perform analysis to extract the flag."
+                        activePage={activePage}
+                        updateActivePage={updateActivePage}
                       />
                     </div>
                   </div>
@@ -1016,95 +1018,15 @@ export default function ModuleEditor() {
                         onChange={(val) => updateActivePage({ content: val })}
                         draftKey={null}
                         placeholder="Structure the concepts, provide code snippets, and build informative theory segments."
+                        activePage={activePage}
+                        updateActivePage={updateActivePage}
                       />
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Hints Configuration */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '16px', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <label style={labelStyle}>Page Hints</label>
-                  {!isReadOnly && (
-                    <button 
-                      type="button" 
-                      onClick={() => {
-                        const hints = [...(activePage.hints || []), { id: `hint_${Date.now()}`, text: '', cost: 0 }];
-                        updateActivePage({ hints });
-                      }}
-                      style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}
-                    >
-                      + Add Hint
-                    </button>
-                  )}
-                </div>
-                {(!activePage.hints || activePage.hints.length === 0) ? (
-                  <p style={{ color: '#475569', fontSize: '0.8rem', margin: 0 }}>No hints configured.</p>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    {activePage.hints.map((hint, hIdx) => (
-                      <div key={hint.id} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                        <div style={{ flex: 1 }}>
-                          <label style={{ ...labelStyle, marginBottom: '4px' }}>Hint Text</label>
-                          <input 
-                            type="text" 
-                            placeholder="e.g. Try looking at the page source." 
-                            value={hint.text || ''} 
-                            onChange={(e) => {
-                              const hints = [...activePage.hints];
-                              hints[hIdx].text = e.target.value;
-                              updateActivePage({ hints });
-                            }}
-                            disabled={isReadOnly}
-                            style={{ ...inputStyle, marginTop: 0 }}
-                          />
-                        </div>
-                        <div style={{ width: '120px' }}>
-                          <label style={{ ...labelStyle, marginBottom: '4px' }}>Point Deduction Cost</label>
-                          <input 
-                            type="number" 
-                            placeholder="0" 
-                            value={hint.cost ?? 0} 
-                            onChange={(e) => {
-                              const hints = [...activePage.hints];
-                              const val = e.target.value;
-                              hints[hIdx].cost = val === '' ? 0 : Number(val);
-                              updateActivePage({ hints });
-                            }}
-                            disabled={isReadOnly}
-                            style={{ ...inputStyle, marginTop: 0 }}
-                          />
-                        </div>
-                        {!isReadOnly && (
-                          <div style={{ display: 'flex', alignItems: 'flex-end', height: '100%', gap: '8px' }}>
-                            <button 
-                              type="button" 
-                              onClick={() => {
-                                const newContent = (activePage.content || '') + `\n\n{{HINT: ${hint.id}}}\n\n`;
-                                updateActivePage({ content: newContent });
-                              }}
-                              style={{ background: 'rgba(168, 85, 247, 0.1)', border: '1px solid rgba(168, 85, 247, 0.2)', color: '#a855f7', cursor: 'pointer', padding: '0 12px', borderRadius: '8px', height: '42px', display: 'flex', alignItems: 'center', marginTop: '18px', fontSize: '0.8rem', fontWeight: 600 }}
-                            >
-                              Insert Inline
-                            </button>
-                            <button 
-                              type="button" 
-                              onClick={() => {
-                                const hints = activePage.hints.filter((_, idx) => idx !== hIdx);
-                                updateActivePage({ hints });
-                              }}
-                              style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', color: '#ef4444', cursor: 'pointer', padding: '11px', borderRadius: '8px', height: '42px', display: 'flex', alignItems: 'center', marginTop: '18px' }}
-                            >
-                              <Trash size={16} />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+
             </div>
           )}
         </div>

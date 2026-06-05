@@ -2,7 +2,7 @@ import React from 'react';
 import { 
   Bold, Italic, Underline, Link as LinkIcon, Image, Code, Terminal, Info, 
   Eye, Edit3, Columns, Maximize, Minimize, RefreshCw, FileText, Star,
-  Heading1, Heading2, Heading3, Table
+  Heading1, Heading2, Heading3, Table, Lightbulb
 } from 'lucide-react';
 import { ACTION_GROUPS, TOOLBAR_ACTIONS } from '../../constants/toolbarActions';
 
@@ -30,6 +30,7 @@ export default function Toolbar({
       case 'dynamicAlert': return <Info size={14} color="#a855f7" />;
       case 'stepCard': return <Star size={14} color="#a855f7" />;
       case 'table': return <Table size={14} />;
+      case 'hint': return <Lightbulb size={14} color="#f59e0b" />;
       default: return <Info size={14} />;
     }
   };

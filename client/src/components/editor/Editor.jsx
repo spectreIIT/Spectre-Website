@@ -5,17 +5,19 @@ import SlashMenu from './SlashMenu';
 import StatusBar from './StatusBar';
 import TemplateModal from './TemplateModal';
 import TableModal from './TableModal';
+import HintModal from './HintModal';
 import DynamicAlertModal from './DynamicAlertModal';
 import { handleKeyDown } from '../../utils/editor/shortcuts';
 import { applyCommand } from '../../utils/editor/editorCommands';
 import { uploadImageToCloudinary } from '../../utils/editor/cloudinaryUpload';
 import '../../styles/components/Editor.css';
 
-export default function Editor({ value, onChange, placeholder = 'Write your markdown content here...', draftKey = 'spectre_editor_draft' }) {
+export default function Editor({ value, onChange, placeholder = 'Write your markdown content here...', draftKey = 'spectre_editor_draft', activePage, updateActivePage }) {
   const [activeTab, setActiveTab] = useState('write'); // 'write', 'split', 'preview'
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   const [showTableModal, setShowTableModal] = useState(false);
+  const [showHintModal, setShowHintModal] = useState(false);
   const [showAlertModal, setShowAlertModal] = useState(false);
   const [autosaveState, setAutosaveState] = useState('idle'); // 'idle', 'saving', 'saved'
   
@@ -153,6 +155,11 @@ export default function Editor({ value, onChange, placeholder = 'Write your mark
       return;
     }
     
+    if (id === 'hint') {
+      setShowHintModal(true);
+      return;
+    }
+    
     if (id === 'dynamicAlert') {
       setShowAlertModal(true);
       return;
@@ -225,6 +232,8 @@ export default function Editor({ value, onChange, placeholder = 'Write your mark
       if (cmd.isSpecial) {
         if (cmd.id === 'table') {
           setShowTableModal(true);
+        } else if (cmd.id === 'hint') {
+          setShowHintModal(true);
         } else if (cmd.id === 'dynamicAlert') {
           setShowAlertModal(true);
         } else if (cmd.id === 'image') {
@@ -354,7 +363,7 @@ export default function Editor({ value, onChange, placeholder = 'Write your mark
         {/* Live rendering Preview Pane */}
         {activeTab !== 'write' && (
           <div className="canvas-pane-preview">
-            <PreviewPane value={value} />
+            <PreviewPane value={value} hints={activePage?.hints || []} />
           </div>
         )}
       </div>
@@ -379,6 +388,21 @@ export default function Editor({ value, onChange, placeholder = 'Write your mark
         isOpen={showTableModal} 
         onClose={() => setShowTableModal(false)} 
         onInsert={handleInsertTemplateAtCursor} 
+      />
+      
+      <HintModal 
+        isOpen={showHintModal} 
+        onClose={() => setShowHintModal(false)} 
+        onInsert={(hintText, cost) => {
+          if (activePage && updateActivePage) {
+            const newHintId = `hint_${Date.now()}`;
+            const hints = [...(activePage.hints || []), { id: newHintId, text: hintText, cost }];
+            updateActivePage({ hints });
+            handleInsertTemplateAtCursor(`\n\n{{HINT: ${newHintId}}}\n\n`);
+          } else {
+            alert('Cannot insert hint: Editor is not connected to a page.');
+          }
+        }} 
       />
       
       <DynamicAlertModal 

@@ -142,5 +142,14 @@ export const TOOLBAR_ACTIONS = [
     after: '',
     defaultText: 'Enter step description here...',
     shortcut: 'Ctrl+Shift+S'
+  },
+  {
+    id: 'hint',
+    group: ACTION_GROUPS.CALLOUTS,
+    label: 'Inline Hint',
+    before: '',
+    after: '',
+    defaultText: '',
+    shortcut: 'Ctrl+Shift+H'
   }
 ];
