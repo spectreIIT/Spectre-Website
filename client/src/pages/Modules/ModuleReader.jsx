@@ -45,41 +45,85 @@ const toProxyUrl = (url) => {
 
 const InlineHint = ({ hint, isRevealed, onReveal }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [isRevealing, setIsRevealing] = useState(false);
 
   const toggleHint = () => {
-    if (!isRevealed) {
+    if (!isRevealed && !isRevealing) {
       if (hint.cost > 0) {
-        if (window.confirm(`This hint costs ${hint.cost} points. Reveal it?`)) {
-          onReveal();
-          setIsOpen(true);
-        }
+        setShowConfirm(true);
       } else {
-        onReveal();
-        setIsOpen(true);
+        doReveal();
       }
     } else {
-      setIsOpen(!isOpen);
+      if (!isRevealing) {
+        setIsOpen(!isOpen);
+      }
     }
   };
 
+  const doReveal = async () => {
+    setShowConfirm(false);
+    setIsOpen(true);
+    setIsRevealing(true);
+    await onReveal();
+    setIsRevealing(false);
+  };
+
   return (
-    <div style={{ margin: '12px 0', padding: '10px 14px', background: 'rgba(168, 85, 247, 0.05)', border: '1px solid rgba(168, 85, 247, 0.2)', borderRadius: '6px', fontSize: '0.88rem' }}>
-      <div 
-        onClick={toggleHint}
-        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', color: '#cbd5e1', fontWeight: '600' }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Lightbulb size={16} color="#a855f7" /> 
-          Hint {hint.cost > 0 && !isRevealed ? <span style={{ color: '#ef4444', fontSize: '0.75rem', padding: '2px 6px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '4px', marginLeft: '6px' }}>-{hint.cost} pts</span> : ''}
+    <>
+      <div style={{ margin: '12px 0', padding: '10px 14px', background: 'rgba(168, 85, 247, 0.05)', border: '1px solid rgba(168, 85, 247, 0.2)', borderRadius: '6px', fontSize: '0.88rem' }}>
+        <div 
+          onClick={toggleHint}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', color: '#cbd5e1', fontWeight: '600' }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Lightbulb size={16} color="#a855f7" /> 
+            Hint {hint.cost > 0 ? <span style={{ color: '#ef4444', fontSize: '0.75rem', padding: '2px 6px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '4px', marginLeft: '6px' }}>-{hint.cost} pts</span> : ''}
+          </div>
+          {isRevealing ? <Loader2 size={16} className="animate-spin" /> : isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         </div>
-        {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        {isOpen && (
+          <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px dashed rgba(168, 85, 247, 0.2)', color: '#94a3b8', lineHeight: '1.5' }}>
+            {hint.text ? (
+              <span dangerouslySetInnerHTML={{ __html: parseMarkdownToHTML(hint.text) }} />
+            ) : (
+              <span style={{ fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '6px' }}><Loader2 size={14} className="animate-spin" /> Fetching hint...</span>
+            )}
+          </div>
+        )}
       </div>
-      {isOpen && isRevealed && (
-        <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px dashed rgba(168, 85, 247, 0.2)', color: '#94a3b8', lineHeight: '1.5' }}>
-          {hint.text || <span style={{ fontStyle: 'italic' }}>Loading hint...</span>}
+
+      {showConfirm && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
+          <div style={{ background: '#0f1115', border: '1px solid rgba(168, 85, 247, 0.4)', borderRadius: '12px', width: '380px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', boxShadow: '0 25px 50px rgba(0,0,0,0.8)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ background: 'rgba(239, 68, 68, 0.1)', padding: '10px', borderRadius: '50%' }}>
+                <AlertTriangle size={24} color="#ef4444" />
+              </div>
+              <h3 style={{ color: '#fff', margin: 0, fontSize: '1.1rem', fontWeight: 700 }}>Reveal Hint</h3>
+            </div>
+            <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: 0, lineHeight: 1.5 }}>
+              This hint costs <strong style={{ color: '#ef4444' }}>{hint.cost} points</strong> to reveal. These points will be deducted from your total score for this module.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '8px' }}>
+              <button 
+                onClick={() => setShowConfirm(false)}
+                style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', padding: '8px 16px', borderRadius: '6px', fontWeight: 600, cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={doReveal}
+                style={{ background: 'rgba(168, 85, 247, 0.1)', border: '1px solid rgba(168, 85, 247, 0.4)', color: '#a855f7', padding: '8px 16px', borderRadius: '6px', fontWeight: 700, cursor: 'pointer' }}
+              >
+                Confirm Reveal
+              </button>
+            </div>
+          </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
 
