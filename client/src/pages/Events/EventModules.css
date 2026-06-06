@@ -182,6 +182,27 @@
   /* No background/border change needed for transparent SVG */
 }
 
+.em-timeline-node.completed .em-node-content {
+  border: 1px solid rgba(34, 197, 94, 0.4);
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.08) 0%, #12141a 100%);
+  box-shadow: 0 0 20px rgba(34, 197, 94, 0.05);
+}
+
+.em-timeline-node.completed::before {
+  content: '';
+  position: absolute;
+  left: 45px;
+  top: 50%;
+  bottom: -70px; /* extends to the next node */
+  width: 4px;
+  background: rgba(34, 197, 94, 0.4);
+  z-index: 1;
+}
+
+.em-timeline-node:last-child::before {
+  display: none;
+}
+
 .em-timeline-node.locked .em-node-marker {
   /* No border/color change needed for transparent SVG */
   opacity: 0.8;
@@ -207,6 +228,10 @@
   width: 12px;
   height: 2px;
   background: rgba(255, 255, 255, 0.05);
+}
+
+.em-timeline-node.completed .em-node-content::before {
+  background: rgba(34, 197, 94, 0.4);
 }
 
 .em-timeline-node.locked {
@@ -287,6 +312,7 @@
   height: 100%;
   border-radius: 3px;
   transition: width 0.4s ease;
+  background: var(--mod-color);
 }
 
 .em-progress-text {

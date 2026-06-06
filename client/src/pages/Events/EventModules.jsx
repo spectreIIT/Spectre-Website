@@ -283,7 +283,7 @@ export default function EventModules() {
                         {!isLocked && (
                           <div className="em-node-footer">
                             <div className="em-progress-container">
-                              <div className="em-progress-bar" style={{ width: `${pct}%`, background: mod.color || '#a855f7' }}></div>
+                              <div className="em-progress-bar" style={{ width: `${pct}%` }}></div>
                             </div>
                             <span className="em-progress-text">{pct}% Complete</span>
                           </div>

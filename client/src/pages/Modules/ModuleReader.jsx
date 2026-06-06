@@ -28,12 +28,13 @@ const formatExternalUrl = (url) => {
   return isIPOrLocal ? `http://${url}` : `https://${url}`;
 };
 
-const getDownloadUrl = (url) => {
+const getDownloadUrl = (url, name) => {
   if (!url) return '';
   let finalUrl = formatExternalUrl(url);
   if (finalUrl.includes('res.cloudinary.com') && finalUrl.includes('/upload/') && !finalUrl.includes('fl_attachment')) {
     const parts = finalUrl.split('/upload/');
-    finalUrl = `${parts[0]}/upload/fl_attachment/${parts[1]}`;
+    const attachmentParam = name ? `fl_attachment:${encodeURIComponent(name.replace(/[^a-zA-Z0-9.-]/g, '_'))}` : 'fl_attachment';
+    finalUrl = `${parts[0]}/upload/${attachmentParam}/${parts[1]}`;
   }
   return finalUrl;
 };
@@ -634,7 +635,7 @@ export default function ModuleReader() {
                               return (
                                 <a 
                                   key={idx} 
-                                  href={isLink ? formatExternalUrl(file.url) : getDownloadUrl(file.url)} 
+                                  href={isLink ? formatExternalUrl(file.url) : getDownloadUrl(file.url, file.name)} 
                                   target={isLink ? "_blank" : undefined}
                                   rel="noopener noreferrer" 
                                   download={!isLink}
@@ -1036,7 +1037,7 @@ export default function ModuleReader() {
                           return (
                           <a 
                             key={idx} 
-                            href={isLink ? formatExternalUrl(file.url) : getDownloadUrl(file.url)} 
+                            href={isLink ? formatExternalUrl(file.url) : getDownloadUrl(file.url, file.name)} 
                             target={isLink ? "_blank" : undefined}
                             rel="noopener noreferrer"
                             download={!isLink}

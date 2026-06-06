@@ -129,11 +129,12 @@ const ChallengeModal = ({ challenge: initialChallenge, onClose, onSolve, eventId
   const diffDisplay = challenge.difficulty || 'Easy';
   const scoringType = challenge.scoringType || 'static';
 
-  const getDownloadUrl = (url) => {
+  const getDownloadUrl = (url, name) => {
     if (!url) return '';
     if (url.includes('res.cloudinary.com') && url.includes('/upload/') && !url.includes('fl_attachment')) {
       const parts = url.split('/upload/');
-      return `${parts[0]}/upload/fl_attachment/${parts[1]}`;
+      const attachmentParam = name ? `fl_attachment:${encodeURIComponent(name.replace(/[^a-zA-Z0-9.-]/g, '_'))}` : 'fl_attachment';
+      return `${parts[0]}/upload/${attachmentParam}/${parts[1]}`;
     }
     return url;
   };
@@ -254,7 +255,7 @@ const ChallengeModal = ({ challenge: initialChallenge, onClose, onSolve, eventId
                     challenge.files.map((file, idx) => (
                       <a 
                         key={idx} 
-                        href={file.type === 'link' ? file.url : getDownloadUrl(file.url)} 
+                        href={file.type === 'link' ? file.url : getDownloadUrl(file.url, file.name)} 
                         className={`cm-resource-item ${file.type || 'file'}`} 
                         download={file.type !== 'link'}
                         target={file.type === 'link' ? "_blank" : undefined}
