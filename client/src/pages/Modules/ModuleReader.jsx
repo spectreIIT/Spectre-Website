@@ -28,6 +28,16 @@ const formatExternalUrl = (url) => {
   return isIPOrLocal ? `http://${url}` : `https://${url}`;
 };
 
+const getDownloadUrl = (url) => {
+  if (!url) return '';
+  let finalUrl = formatExternalUrl(url);
+  if (finalUrl.includes('res.cloudinary.com') && finalUrl.includes('/upload/') && !finalUrl.includes('fl_attachment')) {
+    const parts = finalUrl.split('/upload/');
+    finalUrl = `${parts[0]}/upload/fl_attachment/${parts[1]}`;
+  }
+  return finalUrl;
+};
+
 const toProxyUrl = (url) => {
   if (!url) return '';
   const formattedUrl = formatExternalUrl(url);
@@ -624,9 +634,10 @@ export default function ModuleReader() {
                               return (
                                 <a 
                                   key={idx} 
-                                  href={formatExternalUrl(file.url)} 
-                                  target="_blank" 
+                                  href={isLink ? formatExternalUrl(file.url) : getDownloadUrl(file.url)} 
+                                  target={isLink ? "_blank" : undefined}
                                   rel="noopener noreferrer" 
+                                  download={!isLink}
                                   style={{ 
                                     display: 'flex', 
                                     alignItems: 'center', 
@@ -1020,12 +1031,15 @@ export default function ModuleReader() {
                     <div style={{ marginTop: '28px', padding: '20px', backgroundColor: '#090a0f', border: '1px solid rgba(168,85,247,0.2)', borderRadius: '10px' }}>
                       <h4 style={{ color: '#fff', margin: '0 0 12px 0', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Download Lab Resources</h4>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        {mod.challenge.files.map((file, idx) => (
+                        {mod.challenge.files.map((file, idx) => {
+                          const isLink = file.type === 'link';
+                          return (
                           <a 
                             key={idx} 
-                            href={formatExternalUrl(file.url)} 
-                            target="_blank" 
-                            rel="noopener noreferrer" 
+                            href={isLink ? formatExternalUrl(file.url) : getDownloadUrl(file.url)} 
+                            target={isLink ? "_blank" : undefined}
+                            rel="noopener noreferrer"
+                            download={!isLink}
                             style={{ 
                                 display: 'flex', 
                                 alignItems: 'center', 
@@ -1039,7 +1053,8 @@ export default function ModuleReader() {
                           >
                             <Download size={14} /> {file.name || 'resource_download'}
                           </a>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   )}
