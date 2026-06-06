@@ -122,6 +122,14 @@ async function archiveEventAndMigrateContent(event) {
                  });
                }
              });
+             if (m.challenge && m.challenge.hints) {
+               m.challenge.hints.forEach(hint => {
+                 if (revealedHints.has(hint.id)) {
+                   totalDeductions += (hint.cost || 0);
+                 }
+               });
+             }
+
 
              if (m.pointsMode === 'page') {
                 let pagePoints = 0;
@@ -591,6 +599,26 @@ router.get('/:id/leaderboard', protect, async (req, res) => {
         if (!mod) return;
         
         let earnedPoints = 0;
+        let totalDeductions = 0;
+        const revealedHints = new Set(prog.revealedHints || []);
+        
+        mod.pages.forEach(page => {
+          if (page.hints) {
+            page.hints.forEach(hint => {
+              if (revealedHints.has(hint.id)) {
+                totalDeductions += (hint.cost || 0);
+              }
+            });
+          }
+        });
+        if (mod.challenge && mod.challenge.hints) {
+          mod.challenge.hints.forEach(hint => {
+            if (revealedHints.has(hint.id)) {
+              totalDeductions += (hint.cost || 0);
+            }
+          });
+        }
+
         if (mod.pointsMode === 'page') {
           const completedPages = new Set(prog.completedSectionsDuringEvent || []);
           const completedQuestions = new Set(prog.completedQuestionsDuringEvent || []);
@@ -606,9 +634,10 @@ router.get('/:id/leaderboard', protect, async (req, res) => {
               });
             }
           });
+          earnedPoints = Math.max(0, earnedPoints - totalDeductions);
         } else {
           if (prog.isCompletedDuringEvent) {
-            earnedPoints = mod.points || 0;
+            earnedPoints = Math.max(0, (mod.points || 0) - totalDeductions);
           }
         }
         

@@ -273,7 +273,7 @@ export default function EventModules() {
                           <h3>{mod.title}</h3>
                           <div className="em-node-badges">
                             <span className="em-node-points">
-                              {mod.pointsMode === 'page' ? `${mod.earnedPoints || 0}/${mod.points || 0}` : (mod.points || 100)} PTS
+                              {mod.pointsMode === 'page' ? `${mod.earnedPoints || 0}/${mod.points || 0}` : (isCompleted ? `${mod.earnedPoints !== undefined ? mod.earnedPoints : mod.points}/${mod.points || 100}` : (mod.points || 100))} PTS
                             </span>
                             {mod.category && <span className="em-node-category">{mod.category}</span>}
                           </div>
@@ -314,7 +314,7 @@ export default function EventModules() {
               <p style={{ color: '#94a3b8', margin: '0 0 15px 0', lineHeight: 1.6 }}>{activeModule.description}</p>
               <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
                 <span style={{ fontSize: '0.85rem', color: '#00f0ff', background: 'rgba(0,240,255,0.1)', border: '1px solid rgba(0,240,255,0.25)', padding: '4px 12px', borderRadius: '12px', fontWeight: 600 }}>
-                  {activeModule.pointsMode === 'page' ? `${activeModule.earnedPoints || 0}/${activeModule.points || 0}` : (activeModule.points || 100)} PTS
+                  {activeModule.pointsMode === 'page' ? `${activeModule.earnedPoints || 0}/${activeModule.points || 0}` : (isActiveModuleFinished ? `${activeModule.earnedPoints !== undefined ? activeModule.earnedPoints : activeModule.points}/${activeModule.points || 100}` : (activeModule.points || 100))} PTS
                 </span>
                 {activeModule.category && (
                   <span style={{ fontSize: '0.85rem', color: '#94a3b8', background: 'rgba(255,255,255,0.05)', padding: '4px 12px', borderRadius: '12px' }}>
