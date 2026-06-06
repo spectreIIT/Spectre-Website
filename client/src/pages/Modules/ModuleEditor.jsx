@@ -800,10 +800,10 @@ export default function ModuleEditor() {
                       <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '8px', padding: '16px', textAlign: 'center' }}>
                         <p style={{ color: '#64748b', fontSize: '0.85rem', margin: '0 0 10px 0' }}>No questions added. You can use a legacy flag below or add structured questions.</p>
                         <div style={{ textAlign: 'left' }}>
-                          <label style={labelStyle}>Legacy Verification Flag (Fallback)</label>
+                          <label style={labelStyle}>Legacy Verification Flag (Comma-separated for multiple)</label>
                           <input 
                             type="text"
-                            placeholder="e.g. SPECTRE{csrf_t0k3n_bypass_success}"
+                            placeholder="e.g. flag1, flag2"
                             value={activePage.flag || ''}
                             onChange={(e) => updateActivePage({ flag: e.target.value })}
                             disabled={isReadOnly}
@@ -850,10 +850,10 @@ export default function ModuleEditor() {
                               </div>
                               <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end' }}>
                                 <div style={{ flex: 2 }}>
-                                  <label style={{ ...labelStyle, marginBottom: '4px' }}>Correct Answer</label>
+                                  <label style={{ ...labelStyle, marginBottom: '4px' }}>Correct Answer (Comma-separated for multiple)</label>
                                   <input 
                                     type="text" 
-                                    placeholder={q.type === 'blank' ? "Expected blank text" : "e.g. SPECTRE{...}"} 
+                                    placeholder={q.type === 'blank' ? "e.g. answer1, answer2" : "e.g. flag1, flag2"} 
                                     value={q.answer || ''} 
                                     onChange={(e) => {
                                       const qs = [...activePage.questions];

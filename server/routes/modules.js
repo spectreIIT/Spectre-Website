@@ -489,7 +489,8 @@ router.post('/:moduleId/challenge/:pageId/submit', protect, async (req, res) => 
       const question = page.questions?.find(q => q.id === questionId);
       if (!question) return res.status(404).json({ message: 'Question not found' });
       
-      if (submittedAnswer.trim() !== question.answer.trim()) {
+      const validAnswers = question.answer.split(',').map(a => a.trim());
+      if (!validAnswers.includes(submittedAnswer.trim())) {
         return res.status(400).json({ message: 'Incorrect answer' });
       }
       isCorrect = true;
@@ -500,7 +501,9 @@ router.post('/:moduleId/challenge/:pageId/submit', protect, async (req, res) => 
         return res.status(404).json({ message: 'Challenge not found in this module' });
       }
       if (!page.flag) return res.status(400).json({ message: 'This page has no legacy flag' });
-      if (submittedAnswer.trim() !== page.flag.trim()) {
+      
+      const validFlags = page.flag.split(',').map(f => f.trim());
+      if (!validFlags.includes(submittedAnswer.trim())) {
         return res.status(400).json({ message: 'Incorrect flag' });
       }
       isCorrect = true;
