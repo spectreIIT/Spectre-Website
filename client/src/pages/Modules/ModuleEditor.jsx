@@ -1,8 +1,9 @@
 import { useState, useEffect, useContext } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Save, ShieldAlert, Plus, Trash, FileText, HelpCircle, Eye, Edit3, AlertTriangle, Sparkles, Check, ChevronDown, ChevronUp, BookOpen, X, GripVertical, Settings, Award } from 'lucide-react';
+import { ArrowLeft, Save, ShieldAlert, Plus, Trash, FileText, HelpCircle, Eye, Edit3, AlertTriangle, Sparkles, Check, ChevronDown, ChevronUp, BookOpen, X, GripVertical, Settings, Award, Upload } from 'lucide-react';
 import AuthContext from '../../context/AuthContext';
 import Editor from '../../components/editor/Editor';
+import { uploadImageToCloudinary } from '../../utils/editor/cloudinaryUpload';
 import '../../styles/pages/Dashboard.css';
 export default function ModuleEditor() {
   const { id } = useParams();
@@ -14,6 +15,7 @@ export default function ModuleEditor() {
 
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
+  const [uploadingFileIdx, setUploadingFileIdx] = useState(null);
   const [modulesList, setModulesList] = useState([]); // For prerequisite options
   
   // Modals state
@@ -965,6 +967,50 @@ export default function ModuleEditor() {
                               disabled={isReadOnly}
                               style={{ ...inputStyle, marginTop: 0, flex: 2 }}
                             />
+                            {file.type === 'file' && !isReadOnly && (
+                              <button
+                                type="button"
+                                disabled={uploadingFileIdx === `${activePageIndex}_${fIdx}`}
+                                onClick={() => {
+                                  const input = document.createElement('input');
+                                  input.type = 'file';
+                                  input.onchange = async (e) => {
+                                    const selectedFile = e.target.files[0];
+                                    if (selectedFile) {
+                                      setUploadingFileIdx(`${activePageIndex}_${fIdx}`);
+                                      try {
+                                        const url = await uploadImageToCloudinary(selectedFile);
+                                        const newFiles = activePage.files.map((f, idx) => 
+                                          idx === fIdx ? { ...f, url: url, name: f.name || selectedFile.name } : f
+                                        );
+                                        updateActivePage({ files: newFiles });
+                                      } catch (err) {
+                                        alert('File upload failed: ' + err.message);
+                                      } finally {
+                                        setUploadingFileIdx(null);
+                                      }
+                                    }
+                                  };
+                                  input.click();
+                                }}
+                                style={{
+                                  background: 'rgba(0, 240, 255, 0.1)',
+                                  border: '1px solid rgba(0, 240, 255, 0.2)',
+                                  color: '#00f0ff',
+                                  padding: '8px 12px',
+                                  borderRadius: '6px',
+                                  cursor: uploadingFileIdx === `${activePageIndex}_${fIdx}` ? 'not-allowed' : 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  fontSize: '0.8rem',
+                                  fontWeight: 600,
+                                  whiteSpace: 'nowrap'
+                                }}
+                              >
+                                {uploadingFileIdx === `${activePageIndex}_${fIdx}` ? '...' : <><Upload size={14} /> Upload</>}
+                              </button>
+                            )}
                             {!isReadOnly && (
                               <button 
                                 type="button" 

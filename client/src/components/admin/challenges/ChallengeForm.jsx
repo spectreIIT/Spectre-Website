@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Save, ShieldAlert, Plus, Trash, FileText, Link2, PlusCircle, HelpCircle, Eye, Edit3, AlertTriangle, Sparkles, Check } from 'lucide-react';
+import { ArrowLeft, Save, ShieldAlert, Plus, Trash, FileText, Link2, PlusCircle, HelpCircle, Eye, Edit3, AlertTriangle, Sparkles, Check, Upload } from 'lucide-react';
 import API_URL from '../../../constants/api';
+import { uploadImageToCloudinary } from '../../../utils/editor/cloudinaryUpload';
 
 export default function ChallengeForm({ challenge, onSave, onCancel, onDelete }) {
   const isReadOnly = challenge?.isReadOnly || false;
@@ -47,6 +48,7 @@ export default function ChallengeForm({ challenge, onSave, onCancel, onDelete })
   
   // File attachments temp states
   const [tempFile, setTempFile] = useState({ name: '', url: '', size: '', type: 'file' });
+  const [isUploadingTempFile, setIsUploadingTempFile] = useState(false);
   // Hint temp states
   const [tempHint, setTempHint] = useState({ text: '', cost: 0 });
 
@@ -758,14 +760,60 @@ export default function ChallengeForm({ challenge, onSave, onCancel, onDelete })
                       style={{ ...inputStyle, marginTop: 0, padding: '8px' }}
                     />
                   </div>
-                  <div style={{ flex: 2, minWidth: '220px' }}>
+                  <div style={{ flex: 2, minWidth: '220px', display: 'flex', gap: '8px' }}>
                     <input 
                       type="text" 
                       placeholder="Resource URL (HTTP or relative link)" 
                       value={tempFile.url} 
                       onChange={e => setTempFile(prev => ({ ...prev, url: e.target.value }))}
-                      style={{ ...inputStyle, marginTop: 0, padding: '8px' }}
+                      style={{ ...inputStyle, marginTop: 0, padding: '8px', flex: 1 }}
                     />
+                    {tempFile.type === 'file' && (
+                      <button
+                        type="button"
+                        disabled={isUploadingTempFile}
+                        onClick={() => {
+                          const input = document.createElement('input');
+                          input.type = 'file';
+                          input.onchange = async (e) => {
+                            const file = e.target.files[0];
+                            if (file) {
+                              setIsUploadingTempFile(true);
+                              try {
+                                const url = await uploadImageToCloudinary(file);
+                                setTempFile(prev => ({
+                                  ...prev,
+                                  url,
+                                  name: prev.name || file.name,
+                                  size: prev.size || `${(file.size / (1024 * 1024)).toFixed(2)} MB`
+                                }));
+                              } catch (err) {
+                                alert('Upload failed: ' + err.message);
+                              } finally {
+                                setIsUploadingTempFile(false);
+                              }
+                            }
+                          };
+                          input.click();
+                        }}
+                        style={{
+                          background: 'rgba(0, 240, 255, 0.1)',
+                          border: '1px solid rgba(0, 240, 255, 0.2)',
+                          color: '#00f0ff',
+                          padding: '8px 12px',
+                          borderRadius: '6px',
+                          cursor: isUploadingTempFile ? 'not-allowed' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          fontSize: '0.8rem',
+                          fontWeight: 600,
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        {isUploadingTempFile ? '...' : <><Upload size={14} /> Upload</>}
+                      </button>
+                    )}
                   </div>
                 </div>
 
