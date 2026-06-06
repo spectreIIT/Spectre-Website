@@ -36,6 +36,41 @@ export default function Editor({ value, onChange, placeholder = 'Write your mark
     }
   }, []);
 
+  // --- CUSTOM UNDO/REDO STACK ---
+  const historyRef = useRef({
+    stack: [value || ''],
+    index: 0,
+    lastSaveTime: Date.now(),
+    isUndoing: false
+  });
+
+  useEffect(() => {
+    if (historyRef.current.isUndoing) {
+      historyRef.current.isUndoing = false;
+      return;
+    }
+    const currentVal = value || '';
+    const lastSaved = historyRef.current.stack[historyRef.current.index] || '';
+    
+    if (currentVal !== lastSaved) {
+      const timeSinceLastSave = Date.now() - historyRef.current.lastSaveTime;
+      const lengthDiff = Math.abs(currentVal.length - lastSaved.length);
+      
+      // Save a new state if >5 chars changed (e.g. paste, command) OR it's been >1000ms
+      if (lengthDiff > 5 || timeSinceLastSave > 1000) {
+        let newStack = historyRef.current.stack.slice(0, historyRef.current.index + 1);
+        newStack.push(currentVal);
+        if (newStack.length > 50) newStack.shift(); // Max 50 history states
+        historyRef.current.stack = newStack;
+        historyRef.current.index = newStack.length - 1;
+        historyRef.current.lastSaveTime = Date.now();
+      } else {
+        // Just update current state to capture small typing
+        historyRef.current.stack[historyRef.current.index] = currentVal;
+      }
+    }
+  }, [value]);
+
   // 2. Autosave system triggered on value change
   useEffect(() => {
     if (!value || !draftKey) return;
@@ -64,6 +99,44 @@ export default function Editor({ value, onChange, placeholder = 'Write your mark
       // If pressing Tab while not focused inside the editor textarea, allow normal browser navigation
       if (e.key === 'Tab' && document.activeElement !== textarea) {
         return;
+      }
+
+      // Intercept Undo/Redo completely
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const isCtrl = isMac ? e.metaKey : e.ctrlKey;
+      
+      if (isCtrl && !e.altKey && document.activeElement === textarea) {
+        if (e.key.toLowerCase() === 'z') {
+          e.preventDefault();
+          e.stopPropagation();
+          if (e.shiftKey) {
+            // Redo
+            if (historyRef.current.index < historyRef.current.stack.length - 1) {
+              historyRef.current.isUndoing = true;
+              historyRef.current.index += 1;
+              onChange(historyRef.current.stack[historyRef.current.index]);
+            }
+          } else {
+            // Undo
+            if (historyRef.current.index > 0) {
+              historyRef.current.isUndoing = true;
+              historyRef.current.index -= 1;
+              onChange(historyRef.current.stack[historyRef.current.index]);
+            }
+          }
+          return;
+        }
+        if (e.key.toLowerCase() === 'y') {
+          e.preventDefault();
+          e.stopPropagation();
+          // Redo
+          if (historyRef.current.index < historyRef.current.stack.length - 1) {
+            historyRef.current.isUndoing = true;
+            historyRef.current.index += 1;
+            onChange(historyRef.current.stack[historyRef.current.index]);
+          }
+          return;
+        }
       }
 
       // Add a 4th argument to trigger the file input from the shortcut

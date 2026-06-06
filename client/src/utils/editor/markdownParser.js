@@ -92,7 +92,7 @@ const renderCallout = (type, content, CALLOUT_TYPES) => {
           <div class="step-number" style="width: 22px; height: 22px; border-radius: 50%; background: #a855f7; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.75rem; flex-shrink: 0; margin-top: 2px;">${stepNum}</div>
           <div class="step-content" style="flex: 1;">
             <h4 style="color: #fff; margin: 0 0 4px 0; font-size: 0.95rem; font-weight: 600;">${stepTitle}</h4>
-            <p style="color: #94a3b8; margin: 0; font-size: 0.85rem; line-height: 1.5;">${content}</p>
+            <p style="color: #94a3b8; margin: 0; font-size: 0.85rem; line-height: 1.5; white-space: pre-wrap; word-break: break-word;">${content}</p>
           </div>
         </div>
       `;
@@ -125,7 +125,7 @@ const renderCallout = (type, content, CALLOUT_TYPES) => {
         <span style="font-size: 1rem;">${icon}</span>
         <span>${label}</span>
       </div>
-      <div style="font-family: inherit; font-size: 0.88rem; line-height: 1.6; color: #cbd5e1;">${content}</div>
+      <div style="font-family: inherit; font-size: 0.88rem; line-height: 1.6; color: #cbd5e1; white-space: pre-wrap; word-break: break-word;">${content}</div>
     </div>
   `;
 };
