@@ -667,7 +667,7 @@ export default function ModuleReader() {
                                 <a 
                                   key={idx} 
                                   href={isLink ? formatExternalUrl(file.url) : getDownloadUrl(file.url, file.name)} 
-                                  target={isLink ? "_blank" : undefined}
+                                  target="_blank"
                                   rel="noopener noreferrer" 
                                   download={!isLink}
                                   style={{ 
@@ -759,7 +759,6 @@ export default function ModuleReader() {
                                         <div style={{ display: 'flex', gap: '10px' }}>
                                           <input 
                                             type="text" 
-                                            placeholder={q.type === 'blank' ? "Enter missing word/phrase" : "SPECTRE{...}"}
                                             value={questionAnswers[q.id] || ''}
                                             onChange={(e) => setQuestionAnswers(prev => ({ ...prev, [q.id]: e.target.value }))}
                                             disabled={qStatus.loading || saving}
@@ -841,7 +840,6 @@ export default function ModuleReader() {
                             <div style={{ display: 'flex', gap: '10px' }}>
                               <input 
                                 type="text" 
-                                placeholder="SPECTRE{...}"
                                 value={submittedFlag}
                                 onChange={(e) => setSubmittedFlag(e.target.value)}
                                 disabled={saving}
@@ -1044,7 +1042,7 @@ export default function ModuleReader() {
                           <a 
                             key={idx} 
                             href={isLink ? formatExternalUrl(file.url) : getDownloadUrl(file.url, file.name)} 
-                            target={isLink ? "_blank" : undefined}
+                            target="_blank"
                             rel="noopener noreferrer"
                             download={!isLink}
                             style={{ 
@@ -1085,7 +1083,6 @@ export default function ModuleReader() {
                         <div style={{ display: 'flex', gap: '10px' }}>
                           <input 
                             type="text" 
-                            placeholder="SPECTRE{...}"
                             value={submittedFlag}
                             onChange={(e) => setSubmittedFlag(e.target.value)}
                             disabled={saving}

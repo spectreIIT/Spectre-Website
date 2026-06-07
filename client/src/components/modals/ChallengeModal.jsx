@@ -336,7 +336,6 @@ const ChallengeModal = ({ challenge: initialChallenge, onClose, onSolve, eventId
               <form onSubmit={handleSubmit} style={{ marginTop: '10px' }}>
                 <input 
                   type="text" 
-                  placeholder="spectre{flag_here}"
                   value={flag}
                   onChange={e => setFlag(e.target.value)}
                   style={{
