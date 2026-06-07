@@ -802,7 +802,19 @@ export default function ModuleEditor() {
                       <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '8px', padding: '16px', textAlign: 'center' }}>
                         <p style={{ color: '#64748b', fontSize: '0.85rem', margin: '0 0 10px 0' }}>No questions added. You can use a legacy flag below or add structured questions.</p>
                         <div style={{ textAlign: 'left' }}>
-                          <label style={labelStyle}>Legacy Verification Flag (Comma-separated for multiple)</label>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <label style={labelStyle}>Legacy Verification Flag (Comma-separated for multiple)</label>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: '#cbd5e1', cursor: isReadOnly ? 'not-allowed' : 'pointer' }}>
+                              <input 
+                                type="checkbox"
+                                checked={!!activePage.caseSensitive}
+                                onChange={(e) => updateActivePage({ caseSensitive: e.target.checked })}
+                                disabled={isReadOnly}
+                                style={{ margin: 0, cursor: isReadOnly ? 'not-allowed' : 'pointer' }}
+                              />
+                              Case Sensitive
+                            </label>
+                          </div>
                           <input 
                             type="text"
                             placeholder="e.g. flag1, flag2"
@@ -835,19 +847,35 @@ export default function ModuleEditor() {
                                 </div>
                                 <div style={{ flex: 1 }}>
                                   <label style={{ ...labelStyle, marginBottom: '4px' }}>Type</label>
-                                  <select
-                                    value={q.type || 'flag'}
-                                    onChange={(e) => {
-                                      const qs = [...activePage.questions];
-                                      qs[qIdx].type = e.target.value;
-                                      updateActivePage({ questions: qs });
-                                    }}
-                                    disabled={isReadOnly}
-                                    style={{ ...inputStyle, marginTop: 0, padding: '12px 8px' }}
-                                  >
-                                    <option value="flag">Standard Flag</option>
-                                    <option value="blank">Fill-in-the-blank</option>
-                                  </select>
+                                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                    <select
+                                      value={q.type || 'flag'}
+                                      onChange={(e) => {
+                                        const qs = [...activePage.questions];
+                                        qs[qIdx].type = e.target.value;
+                                        updateActivePage({ questions: qs });
+                                      }}
+                                      disabled={isReadOnly}
+                                      style={{ ...inputStyle, marginTop: 0, padding: '12px 8px', flex: 1 }}
+                                    >
+                                      <option value="flag">Standard Flag</option>
+                                      <option value="blank">Fill-in-the-blank</option>
+                                    </select>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: '#cbd5e1', cursor: isReadOnly ? 'not-allowed' : 'pointer', marginTop: '6px', whiteSpace: 'nowrap' }}>
+                                      <input 
+                                        type="checkbox"
+                                        checked={!!q.caseSensitive}
+                                        onChange={(e) => {
+                                          const qs = [...activePage.questions];
+                                          qs[qIdx].caseSensitive = e.target.checked;
+                                          updateActivePage({ questions: qs });
+                                        }}
+                                        disabled={isReadOnly}
+                                        style={{ margin: 0, cursor: isReadOnly ? 'not-allowed' : 'pointer' }}
+                                      />
+                                      Case Sensitive
+                                    </label>
+                                  </div>
                                 </div>
                               </div>
                               <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end' }}>

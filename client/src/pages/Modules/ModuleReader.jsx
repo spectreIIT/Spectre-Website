@@ -54,12 +54,13 @@ const toProxyUrl = (url) => {
   }
 };
 
-const InlineHint = ({ hint, isRevealed, onReveal }) => {
+const InlineHint = ({ hint, isRevealed, onReveal, isLocked }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [isRevealing, setIsRevealing] = useState(false);
 
   const toggleHint = () => {
+    if (isLocked) return;
     if (!isRevealed && !isRevealing) {
       if (hint.cost > 0) {
         setShowConfirm(true);
@@ -83,16 +84,17 @@ const InlineHint = ({ hint, isRevealed, onReveal }) => {
 
   return (
     <>
-      <div style={{ margin: '12px 0', padding: '10px 14px', background: 'rgba(168, 85, 247, 0.05)', border: '1px solid rgba(168, 85, 247, 0.2)', borderRadius: '6px', fontSize: '0.88rem' }}>
+      <div style={{ margin: '12px 0', padding: '10px 14px', background: isLocked ? 'rgba(255, 255, 255, 0.02)' : 'rgba(168, 85, 247, 0.05)', border: isLocked ? '1px dashed rgba(255, 255, 255, 0.1)' : '1px solid rgba(168, 85, 247, 0.2)', borderRadius: '6px', fontSize: '0.88rem', opacity: isLocked ? 0.6 : 1 }}>
         <div 
           onClick={toggleHint}
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', color: '#cbd5e1', fontWeight: '600' }}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: isLocked ? 'not-allowed' : 'pointer', color: isLocked ? '#64748b' : '#cbd5e1', fontWeight: '600' }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Lightbulb size={16} color="#a855f7" /> 
-            Hint {hint.cost > 0 ? <span style={{ color: '#ef4444', fontSize: '0.75rem', padding: '2px 6px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '4px', marginLeft: '6px' }}>-{hint.cost} pts</span> : ''}
+            {isLocked ? <Lock size={16} color="#64748b" /> : <Lightbulb size={16} color="#a855f7" />} 
+            {isLocked ? 'Hint Locked (Reveal previous hint first)' : 'Hint'}
+            {!isLocked && hint.cost > 0 ? <span style={{ color: '#ef4444', fontSize: '0.75rem', padding: '2px 6px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '4px', marginLeft: '6px' }}>-{hint.cost} pts</span> : ''}
           </div>
-          {isRevealing ? <Loader2 size={16} className="animate-spin" /> : isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          {isRevealing ? <Loader2 size={16} className="animate-spin" /> : (isLocked ? null : (isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />))}
         </div>
         {isOpen && (
           <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px dashed rgba(168, 85, 247, 0.2)', color: '#94a3b8', lineHeight: '1.5' }}>
@@ -385,6 +387,46 @@ export default function ModuleReader() {
   // Sidebar navigation indices
   const isPageRead = (pid) => completedSections.has(pid);
 
+  const renderContentWithHints = useCallback((content, hintsList) => {
+    const html = parseMarkdownToHTML(content || '');
+    
+    const orderedHintIds = [];
+    const matches = html.match(/{{HINT:\s*([a-zA-Z0-9_-]+)}}/g);
+    if (matches) {
+      matches.forEach(m => {
+        const id = m.match(/{{HINT:\s*([a-zA-Z0-9_-]+)}}/)[1];
+        if (!orderedHintIds.includes(id)) {
+          orderedHintIds.push(id);
+        }
+      });
+    }
+
+    const parts = html.split(/({{HINT:\s*[a-zA-Z0-9_-]+}})/g);
+    
+    return parts.map((part, i) => {
+      const match = part.match(/{{HINT:\s*([a-zA-Z0-9_-]+)}}/);
+      if (match) {
+        const hintId = match[1];
+        const hintData = hintsList?.find(h => h.id === hintId);
+        if (!hintData) return null;
+        
+        const hintIndex = orderedHintIds.indexOf(hintId);
+        const isLocked = hintIndex > 0 && !revealedHints.has(orderedHintIds[hintIndex - 1]);
+
+        return (
+          <InlineHint 
+            key={i} 
+            hint={hintData} 
+            isRevealed={revealedHints.has(hintId)} 
+            onReveal={() => handleRevealHint(hintId)}
+            isLocked={isLocked}
+          />
+        );
+      }
+      return <div key={i} dangerouslySetInnerHTML={{ __html: part }} />;
+    });
+  }, [revealedHints]);
+
   const firstUnreadIdx = mod.pages ? mod.pages.findIndex(p => !isPageRead(p.id)) : 0;
   const maxAllowedIdx = firstUnreadIdx === -1 ? totalPages : firstUnreadIdx;
 
@@ -544,28 +586,7 @@ export default function ModuleReader() {
                     <div className="mr-article" onClick={handlePaneClick}>
                       {activePage.content ? (
                         <div className="markdown-preview">
-                          {(() => {
-                            const html = parseMarkdownToHTML(activePage.content);
-                            const parts = html.split(/({{HINT:\s*[a-zA-Z0-9_-]+}})/g);
-                            
-                            return parts.map((part, i) => {
-                              const match = part.match(/{{HINT:\s*([a-zA-Z0-9_-]+)}}/);
-                              if (match) {
-                                const hintId = match[1];
-                                const hintData = activePage.hints?.find(h => h.id === hintId);
-                                if (!hintData) return null;
-                                return (
-                                  <InlineHint 
-                                    key={i} 
-                                    hint={hintData} 
-                                    isRevealed={revealedHints.has(hintId)} 
-                                    onReveal={() => handleRevealHint(hintId)} 
-                                  />
-                                );
-                              }
-                              return <div key={i} dangerouslySetInnerHTML={{ __html: part }} />;
-                            });
-                          })()}
+                          {renderContentWithHints(activePage.content, activePage.hints)}
                         </div>
                       ) : (
                         <p style={{ color: '#64748b', fontStyle: 'italic' }}>Instructions pending specifications.</p>
@@ -868,28 +889,7 @@ export default function ModuleReader() {
                     <div className="mr-article" onClick={handlePaneClick}>
                       {activePage.content ? (
                         <div className="markdown-preview">
-                          {(() => {
-                            const html = parseMarkdownToHTML(activePage.content);
-                            const parts = html.split(/({{HINT:\s*[a-zA-Z0-9_-]+}})/g);
-                            
-                            return parts.map((part, i) => {
-                              const match = part.match(/{{HINT:\s*([a-zA-Z0-9_-]+)}}/);
-                              if (match) {
-                                const hintId = match[1];
-                                const hintData = activePage.hints?.find(h => h.id === hintId);
-                                if (!hintData) return null;
-                                return (
-                                  <InlineHint 
-                                    key={i} 
-                                    hint={hintData} 
-                                    isRevealed={revealedHints.has(hintId)} 
-                                    onReveal={() => handleRevealHint(hintId)} 
-                                  />
-                                );
-                              }
-                              return <div key={i} dangerouslySetInnerHTML={{ __html: part }} />;
-                            });
-                          })()}
+                          {renderContentWithHints(activePage.content, activePage.hints)}
                         </div>
                       ) : (
                         <p style={{ color: '#64748b', fontStyle: 'italic' }}>This page does not contain any content specifications.</p>
@@ -1003,28 +1003,7 @@ export default function ModuleReader() {
 
                 <div className="mr-article" onClick={handlePaneClick}>
                   <div className="markdown-preview">
-                    {(() => {
-                      const html = parseMarkdownToHTML(mod.challenge.description || 'Instructions pending specifications.');
-                      const parts = html.split(/({{HINT:\s*[a-zA-Z0-9_-]+}})/g);
-                      
-                      return parts.map((part, i) => {
-                        const match = part.match(/{{HINT:\s*([a-zA-Z0-9_-]+)}}/);
-                        if (match) {
-                          const hintId = match[1];
-                          const hintData = mod.challenge.hints?.find(h => h.id === hintId);
-                          if (!hintData) return null;
-                          return (
-                            <InlineHint 
-                              key={i} 
-                              hint={hintData} 
-                              isRevealed={revealedHints.has(hintId)} 
-                              onReveal={() => handleRevealHint(hintId)} 
-                            />
-                          );
-                        }
-                        return <div key={i} dangerouslySetInnerHTML={{ __html: part }} />;
-                      });
-                    })()}
+                    {renderContentWithHints(mod.challenge.description || 'Instructions pending specifications.', mod.challenge.hints)}
                   </div>
 
                   {/* Attached Lab Files */}

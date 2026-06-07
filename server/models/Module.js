@@ -5,7 +5,8 @@ const questionSchema = new mongoose.Schema({
   text: { type: String, required: true },
   answer: { type: String, required: true },
   type: { type: String, enum: ['flag', 'blank'], default: 'flag' },
-  points: { type: Number, default: 0 }
+  points: { type: Number, default: 0 },
+  caseSensitive: { type: Boolean, default: false }
 }, { _id: false });
 
 const hintSchema = new mongoose.Schema({
@@ -21,6 +22,7 @@ const pageSchema = new mongoose.Schema({
   type: { type: String, enum: ['theory', 'challenge'], default: 'theory' },
   points: { type: Number, default: 0 },
   flag: { type: String, default: '' }, // Legacy, keep for backward compatibility
+  caseSensitive: { type: Boolean, default: false },
   questions: [questionSchema],
   embedUrl: { type: String, default: '' },
   scheduledFor: { type: Date, default: null },
@@ -45,6 +47,7 @@ const moduleChallengeSchema = new mongoose.Schema({
   description: { type: String, default: '' },
   files: [fileSchema],
   flag: { type: String, default: '' },
+  caseSensitive: { type: Boolean, default: false },
   hints: [hintSchema],
   solves: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
 }, { _id: false });

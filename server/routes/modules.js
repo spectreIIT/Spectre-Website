@@ -488,9 +488,11 @@ router.post('/:moduleId/challenge/:pageId/submit', protect, async (req, res) => 
       // Multiple question logic
       const question = page.questions?.find(q => q.id === questionId);
       if (!question) return res.status(404).json({ message: 'Question not found' });
+      const isCaseSensitive = !!question.caseSensitive;
+      const validAnswers = question.answer.split(',').map(a => isCaseSensitive ? a.trim() : a.trim().toLowerCase());
+      const submitted = isCaseSensitive ? submittedAnswer.trim() : submittedAnswer.trim().toLowerCase();
       
-      const validAnswers = question.answer.split(',').map(a => a.trim());
-      if (!validAnswers.includes(submittedAnswer.trim())) {
+      if (!validAnswers.includes(submitted)) {
         return res.status(400).json({ message: 'Incorrect answer' });
       }
       isCorrect = true;
@@ -501,9 +503,11 @@ router.post('/:moduleId/challenge/:pageId/submit', protect, async (req, res) => 
         return res.status(404).json({ message: 'Challenge not found in this module' });
       }
       if (!page.flag) return res.status(400).json({ message: 'This page has no legacy flag' });
+      const isCaseSensitive = !!page.caseSensitive;
+      const validFlags = page.flag.split(',').map(f => isCaseSensitive ? f.trim() : f.trim().toLowerCase());
+      const submitted = isCaseSensitive ? submittedAnswer.trim() : submittedAnswer.trim().toLowerCase();
       
-      const validFlags = page.flag.split(',').map(f => f.trim());
-      if (!validFlags.includes(submittedAnswer.trim())) {
+      if (!validFlags.includes(submitted)) {
         return res.status(400).json({ message: 'Incorrect flag' });
       }
       isCorrect = true;
