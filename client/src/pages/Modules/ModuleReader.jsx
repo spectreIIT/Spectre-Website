@@ -244,6 +244,16 @@ export default function ModuleReader() {
     load();
   }, [moduleId, loadModuleProgress]);
 
+  useEffect(() => {
+    // Reset validation states when navigating between pages
+    setSubmittedFlag('');
+    setFlagError('');
+    setFlagSuccess('');
+    setQuestionAnswers({});
+    setQuestionStatus({});
+    setShowEmbedFor(null);
+  }, [sectionIdxParam]);
+
   const saveSection = useCallback(async (sectionId) => {
     setCompletedSections(prev => new Set([...prev, sectionId]));
     setSaving(true);
@@ -778,7 +788,8 @@ export default function ModuleReader() {
                                               padding: '0 20px', 
                                               borderRadius: '8px', 
                                               fontWeight: 700, 
-                                              cursor: 'pointer',
+                                              cursor: (qStatus.loading || saving) ? 'not-allowed' : 'pointer',
+                                              opacity: (qStatus.loading || saving) ? 0.7 : 1,
                                               display: 'flex',
                                               alignItems: 'center',
                                               gap: '6px',
@@ -786,8 +797,15 @@ export default function ModuleReader() {
                                               fontSize: '0.85rem'
                                             }}
                                           >
-                                            {qStatus.loading ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} 
-                                            Submit
+                                            {qStatus.loading ? (
+                                              <>
+                                                <Loader2 size={14} className="animate-spin" /> Submitting...
+                                              </>
+                                            ) : (
+                                              <>
+                                                <Send size={14} /> Submit
+                                              </>
+                                            )}
                                           </button>
                                         </div>
                                         {qStatus.error && (
@@ -1087,14 +1105,23 @@ export default function ModuleReader() {
                               padding: '0 24px', 
                               borderRadius: '8px', 
                               fontWeight: 700, 
-                              cursor: 'pointer',
+                              cursor: saving ? 'not-allowed' : 'pointer',
+                              opacity: saving ? 0.7 : 1,
                               display: 'flex',
                               alignItems: 'center',
                               gap: '8px',
                               transition: 'all 0.2s'
                             }}
                           >
-                            <Send size={14} /> Submit
+                            {saving ? (
+                              <>
+                                <Loader2 size={14} className="animate-spin" /> Submitting...
+                              </>
+                            ) : (
+                              <>
+                                <Send size={14} /> Submit
+                              </>
+                            )}
                           </button>
                         </div>
 
