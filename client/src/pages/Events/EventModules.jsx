@@ -283,9 +283,9 @@ export default function EventModules() {
                         {!isLocked && (
                           <div className="em-node-footer">
                             <div className="em-progress-container">
-                              <div className="em-progress-bar" style={{ width: `${pct}%` }}></div>
+                              <div className="em-progress-bar" style={{ width: `${pct}%`, backgroundColor: isCompleted ? '#22c55e' : (mod.color || '#a855f7') }}></div>
                             </div>
-                            <span className="em-progress-text">{pct}% Complete</span>
+                            <span className="em-progress-text" style={{ color: isCompleted ? '#22c55e' : '#e2e8f0' }}>{pct}% Complete</span>
                           </div>
                         )}
                         {isLocked && getPrereqLabel(mod) && (
@@ -336,9 +336,9 @@ export default function EventModules() {
                 return (pct > 0 || completedCount > 0) ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '15px' }}>
                     <div style={{ flex: 1, maxWidth: '250px', height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${pct}%`, background: activeModule.color, transition: 'width 0.4s' }} />
+                      <div style={{ height: '100%', width: `${pct}%`, background: pct === 100 ? '#22c55e' : (activeModule.color || '#a855f7'), transition: 'width 0.4s', boxShadow: pct === 100 ? '0 0 10px rgba(34, 197, 94, 0.5)' : 'none' }} />
                     </div>
-                    <span style={{ fontSize: '0.85rem', color: '#94a3b8', fontWeight: '600' }}>
+                    <span style={{ fontSize: '0.85rem', color: pct === 100 ? '#22c55e' : '#94a3b8', fontWeight: '600' }}>
                       {completedCount} / {activeTotalItems} completed
                     </span>
                   </div>

@@ -179,7 +179,7 @@
 }
 
 .em-timeline-node.completed .em-node-marker {
-  /* No background/border change needed for transparent SVG */
+  filter: drop-shadow(0 0 20px rgba(34, 197, 94, 0.6));
 }
 
 .em-timeline-node.completed .em-node-content {
@@ -312,7 +312,12 @@
   height: 100%;
   border-radius: 3px;
   transition: width 0.4s ease;
-  background: var(--mod-color);
+  background: var(--mod-color, #a855f7);
+}
+
+.em-timeline-node.completed .em-progress-bar {
+  background: #22c55e !important;
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.5);
 }
 
 .em-progress-text {
