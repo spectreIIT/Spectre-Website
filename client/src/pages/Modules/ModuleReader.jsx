@@ -870,14 +870,23 @@ export default function ModuleReader() {
                                   padding: '0 24px', 
                                   borderRadius: '8px', 
                                   fontWeight: 700, 
-                                  cursor: 'pointer',
+                                  cursor: saving ? 'not-allowed' : 'pointer',
+                                  opacity: saving ? 0.7 : 1,
                                   display: 'flex',
                                   alignItems: 'center',
                                   gap: '8px',
                                   transition: 'all 0.2s'
                                 }}
                               >
-                                <Send size={14} /> Submit
+                                {saving ? (
+                                  <>
+                                    <Loader2 size={14} className="animate-spin" /> Submitting...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Send size={14} /> Submit
+                                  </>
+                                )}
                               </button>
                             </div>
 
