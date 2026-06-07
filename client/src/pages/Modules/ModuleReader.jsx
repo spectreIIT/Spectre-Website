@@ -373,20 +373,6 @@ export default function ModuleReader() {
     }
   };
 
-  if (loading) return <div className="mr-loading"><Loader2 size={32} className="animate-spin" /> Loading Course Platform...</div>;
-  if (!mod) return <div className="mr-error">Module not found. <button onClick={() => navigate('/modules')}>Go back</button></div>;
-
-  const totalPages = mod.pages ? mod.pages.length : 0;
-  const hasChallenge = false;
-  const totalNavItems = totalPages;
-
-  const activePage = !isChallengePage && mod.pages ? mod.pages[pageIdx] : null;
-
-  const isModuleCompleted = mod.pages && mod.pages.length > 0 && mod.pages.every(p => completedSections.has(p.id));
-
-  // Sidebar navigation indices
-  const isPageRead = (pid) => completedSections.has(pid);
-
   const renderContentWithHints = useCallback((content, hintsList) => {
     const html = parseMarkdownToHTML(content || '');
     
@@ -426,6 +412,20 @@ export default function ModuleReader() {
       return <div key={i} dangerouslySetInnerHTML={{ __html: part }} />;
     });
   }, [revealedHints]);
+
+  if (loading) return <div className="mr-loading"><Loader2 size={32} className="animate-spin" /> Loading Course Platform...</div>;
+  if (!mod) return <div className="mr-error">Module not found. <button onClick={() => navigate('/modules')}>Go back</button></div>;
+
+  const totalPages = mod.pages ? mod.pages.length : 0;
+  const hasChallenge = false;
+  const totalNavItems = totalPages;
+
+  const activePage = !isChallengePage && mod.pages ? mod.pages[pageIdx] : null;
+
+  const isModuleCompleted = mod.pages && mod.pages.length > 0 && mod.pages.every(p => completedSections.has(p.id));
+
+  // Sidebar navigation indices
+  const isPageRead = (pid) => completedSections.has(pid);
 
   const firstUnreadIdx = mod.pages ? mod.pages.findIndex(p => !isPageRead(p.id)) : 0;
   const maxAllowedIdx = firstUnreadIdx === -1 ? totalPages : firstUnreadIdx;
@@ -502,7 +502,7 @@ export default function ModuleReader() {
                     {isLocked ? (
                       <img src="/images/ModuleStatus/Locked.jpeg" alt="Locked" style={{ width: '22px', height: '22px', borderRadius: '4px', objectFit: 'cover', opacity: 0.7 }} />
                     ) : isDone ? (
-                      <img src="/images/ModuleStatus/completed.jpeg" alt="Completed" style={{ width: '22px', height: '22px', borderRadius: '4px', objectFit: 'cover', border: isChall ? '1px solid #a855f7' : '1px solid #22c55e' }} />
+                      <img src="/images/ModuleStatus/completed.jpeg" alt="Completed" style={{ width: '22px', height: '22px', borderRadius: '4px', objectFit: 'cover', border: isChall ? '1px solid #a855f7' : '1px solid #22c55e', boxShadow: isChall ? '0 0 8px rgba(168,85,247,0.8)' : '0 0 8px rgba(34,197,94,0.8)' }} />
                     ) : (
                       <img src="/images/ModuleStatus/NotCompleted.jpeg" alt="Not Completed" style={{ width: '22px', height: '22px', borderRadius: '4px', objectFit: 'cover', border: isChall ? '1px solid #a855f7' : '1px solid rgba(255,255,255,0.2)' }} />
                     )}
@@ -534,7 +534,7 @@ export default function ModuleReader() {
                   {totalPages > maxAllowedIdx ? (
                     <img src="/images/ModuleStatus/Locked.jpeg" alt="Locked" style={{ width: '22px', height: '22px', borderRadius: '4px', objectFit: 'cover', opacity: 0.7 }} />
                   ) : isModuleCompleted ? (
-                    <img src="/images/ModuleStatus/completed.jpeg" alt="Completed" style={{ width: '22px', height: '22px', borderRadius: '4px', objectFit: 'cover', border: '1px solid #a855f7' }} />
+                    <img src="/images/ModuleStatus/completed.jpeg" alt="Completed" style={{ width: '22px', height: '22px', borderRadius: '4px', objectFit: 'cover', border: '1px solid #a855f7', boxShadow: '0 0 8px rgba(168,85,247,0.8)' }} />
                   ) : (
                     <img src="/images/ModuleStatus/NotCompleted.jpeg" alt="Not Completed" style={{ width: '22px', height: '22px', borderRadius: '4px', objectFit: 'cover', border: '1px solid #a855f7' }} />
                   )}
