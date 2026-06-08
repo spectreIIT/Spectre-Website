@@ -62,6 +62,14 @@ router.get('/', protect, async (req, res) => {
       .populate('createdBy', '_id username')
       .sort({ order: 1, createdAt: 1 });
 
+    const now = new Date();
+    for (let mod of modules) {
+      if (mod.status === 'scheduled' && mod.scheduledFor && new Date(mod.scheduledFor) <= now) {
+        mod.status = 'active';
+        await mod.save();
+      }
+    }
+
     if (req.user.role === 'Member') {
       modules = modules.filter(mod => {
         if (!mod.status || mod.status === 'draft' || mod.status === 'hidden') return false;
@@ -222,6 +230,11 @@ router.get('/:moduleId', protect, async (req, res) => {
       .populate('createdBy', '_id username');
       
     if (!mod) return res.status(404).json({ message: 'Module not found' });
+    
+    if (mod.status === 'scheduled' && mod.scheduledFor && new Date(mod.scheduledFor) <= new Date()) {
+      mod.status = 'active';
+      await mod.save();
+    }
     
     // Enforce scoping access controls
     const createdById = mod.createdBy?._id?.toString() || mod.createdBy?.toString();
