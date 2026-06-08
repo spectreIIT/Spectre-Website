@@ -136,7 +136,12 @@ const ChallengeModal = ({ challenge: initialChallenge, onClose, onSolve, eventId
         return url;
       }
       const parts = url.split('/upload/');
-      const attachmentParam = name ? `fl_attachment:${encodeURIComponent(name.replace(/[^a-zA-Z0-9.-]/g, '_'))}` : 'fl_attachment';
+      let attachmentName = '';
+      if (name) {
+        const nameWithoutExt = name.replace(/\.[^/.]+$/, "");
+        attachmentName = encodeURIComponent(nameWithoutExt.replace(/[^a-zA-Z0-9.-]/g, '_'));
+      }
+      const attachmentParam = attachmentName ? `fl_attachment:${attachmentName}` : 'fl_attachment';
       return `${parts[0]}/upload/${attachmentParam}/${parts[1]}`;
     }
     return url;

@@ -36,7 +36,12 @@ const getDownloadUrl = (url, name) => {
       return finalUrl;
     }
     const parts = finalUrl.split('/upload/');
-    const attachmentParam = name ? `fl_attachment:${encodeURIComponent(name.replace(/[^a-zA-Z0-9.-]/g, '_'))}` : 'fl_attachment';
+    let attachmentName = '';
+    if (name) {
+      const nameWithoutExt = name.replace(/\.[^/.]+$/, "");
+      attachmentName = encodeURIComponent(nameWithoutExt.replace(/[^a-zA-Z0-9.-]/g, '_'));
+    }
+    const attachmentParam = attachmentName ? `fl_attachment:${attachmentName}` : 'fl_attachment';
     finalUrl = `${parts[0]}/upload/${attachmentParam}/${parts[1]}`;
   }
   return finalUrl;
