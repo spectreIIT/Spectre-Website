@@ -302,9 +302,9 @@ export default function ModuleBuilder({ eventId = null, onSaved }) {
           
           <div style={{ color: '#64748b', fontSize: '0.8rem', marginTop: '4px' }}>
             {mod.pages?.length || 0} Pages • {mod.points || 0} PTS
-            {mod.scheduledFor && <span style={{ color: '#475569', marginLeft: '6px' }}>• Scheduled: {formatUpdatedTime(mod.scheduledFor)}</span>}
             <span style={{ color: '#475569', marginLeft: '6px' }}>• Created by {isOwner ? 'You' : creatorName}</span>
             <span style={{ color: '#334155', marginLeft: '6px' }}>• Updated: {formatUpdatedTime(mod.updatedAt)}</span>
+            {mod.scheduledFor && <div style={{ color: '#475569', marginTop: '4px' }}>Scheduled for: {formatUpdatedTime(mod.scheduledFor)}</div>}
           </div>
         </div>
 
