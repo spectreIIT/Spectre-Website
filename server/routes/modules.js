@@ -133,6 +133,17 @@ router.get('/', protect, async (req, res) => {
         }
       }
 
+      if (mod.eventId && (isModuleDone || prog?.isCompleted)) {
+         const scheduleDate = mod.scheduledFor ? new Date(mod.scheduledFor) : new Date(mod.createdAt);
+         const completionDate = new Date(prog?.lastActivityAt || new Date());
+         
+         const releaseDay = scheduleDate.toISOString().split('T')[0];
+         const completionDay = completionDate.toISOString().split('T')[0];
+         if (releaseDay === completionDay) {
+            earnedPoints += 5;
+         }
+      }
+
       // Prerequisite check
       const prerequisitesMet = (obj.prerequisites || []).every(pre => {
         const preProg = progressMap[pre._id.toString()];

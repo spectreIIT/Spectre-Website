@@ -230,7 +230,6 @@ export const recalculateEventScore = async (eventId, userId) => {
     const dbModules = await Module.find({ _id: { $in: dbModuleIds }, eventId: eventId });
     
     let dbModuleScore = 0;
-    const bonusDays = new Set();
     
     allProgress.forEach(prog => {
       const mod = dbModules.find(m => m._id.toString() === prog.moduleId);
@@ -283,19 +282,18 @@ export const recalculateEventScore = async (eventId, userId) => {
           }
         }
 
-        if (event.eventType === 'module' && moduleFullyCompleted) {
-           const releaseDay = new Date(mod.createdAt).toISOString().split('T')[0];
-           const completionDay = new Date(prog.lastActivityAt || new Date()).toISOString().split('T')[0];
+        if (moduleFullyCompleted) {
+           const scheduleDate = mod.scheduledFor ? new Date(mod.scheduledFor) : new Date(mod.createdAt);
+           const completionDate = new Date(prog.lastActivityAt || new Date());
+           
+           const releaseDay = scheduleDate.toISOString().split('T')[0];
+           const completionDay = completionDate.toISOString().split('T')[0];
            if (releaseDay === completionDay) {
-              bonusDays.add(releaseDay);
+              dbModuleScore += 5;
            }
         }
       }
     });
-
-    if (event.eventType === 'module') {
-      dbModuleScore += bonusDays.size * 5;
-    }
 
     // 3. Recalculate event writeup score
     const approvedWriteups = await Writeup.find({

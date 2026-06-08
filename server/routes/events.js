@@ -161,6 +161,17 @@ async function archiveEventAndMigrateContent(event) {
                 }
              }
 
+             if (prog.isCompletedDuringEvent) {
+                const scheduleDate = m.scheduledFor ? new Date(m.scheduledFor) : new Date(m.createdAt);
+                const completionDate = new Date(prog.lastActivityAt || new Date());
+                
+                const releaseDay = scheduleDate.toISOString().split('T')[0];
+                const completionDay = completionDate.toISOString().split('T')[0];
+                if (releaseDay === completionDay) {
+                   eventPointsEarned += 5;
+                }
+             }
+
              if (eventPointsEarned > 0 || prog.isCompletedDuringEvent) {
                 const newProg = new ModuleProgress({
                    user: prog.user,
@@ -639,6 +650,17 @@ router.get('/:id/leaderboard', protect, async (req, res) => {
           if (prog.isCompletedDuringEvent) {
             earnedPoints = Math.max(0, (mod.points || 0) - totalDeductions);
           }
+        }
+        
+        if (prog.isCompletedDuringEvent) {
+           const scheduleDate = mod.scheduledFor ? new Date(mod.scheduledFor) : new Date(mod.createdAt);
+           const completionDate = new Date(prog.lastActivityAt || new Date());
+           
+           const releaseDay = scheduleDate.toISOString().split('T')[0];
+           const completionDay = completionDate.toISOString().split('T')[0];
+           if (releaseDay === completionDay) {
+              earnedPoints += 5;
+           }
         }
         
         if (earnedPoints > 0) {
