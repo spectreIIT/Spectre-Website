@@ -132,11 +132,36 @@ const ChallengeModal = ({ challenge: initialChallenge, onClose, onSolve, eventId
   const getDownloadUrl = (url, name) => {
     if (!url) return '';
     if (url.includes('res.cloudinary.com') && url.includes('/upload/') && !url.includes('fl_attachment')) {
+      if (url.includes('/raw/upload/')) {
+        return url;
+      }
       const parts = url.split('/upload/');
       const attachmentParam = name ? `fl_attachment:${encodeURIComponent(name.replace(/[^a-zA-Z0-9.-]/g, '_'))}` : 'fl_attachment';
       return `${parts[0]}/upload/${attachmentParam}/${parts[1]}`;
     }
     return url;
+  };
+
+  const handleRawDownload = async (e, url, name) => {
+    if (url && url.includes('res.cloudinary.com') && url.includes('/raw/upload/')) {
+      e.preventDefault();
+      try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('Network response was not ok');
+        const blob = await response.blob();
+        const objectUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = objectUrl;
+        link.download = name || 'download';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(objectUrl);
+      } catch (err) {
+        console.error('Download failed, falling back to default behavior', err);
+        window.open(url, '_blank');
+      }
+    }
   };
 
   return (
@@ -256,6 +281,7 @@ const ChallengeModal = ({ challenge: initialChallenge, onClose, onSolve, eventId
                       <a 
                         key={idx} 
                         href={file.type === 'link' ? file.url : getDownloadUrl(file.url, file.name)} 
+                        onClick={(e) => file.type !== 'link' && handleRawDownload(e, file.url, file.name)}
                         className={`cm-resource-item ${file.type || 'file'}`} 
                         download={file.type !== 'link'}
                         target={file.type === 'link' ? "_blank" : undefined}

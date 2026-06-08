@@ -32,11 +32,36 @@ const getDownloadUrl = (url, name) => {
   if (!url) return '';
   let finalUrl = formatExternalUrl(url);
   if (finalUrl.includes('res.cloudinary.com') && finalUrl.includes('/upload/') && !finalUrl.includes('fl_attachment')) {
+    if (finalUrl.includes('/raw/upload/')) {
+      return finalUrl;
+    }
     const parts = finalUrl.split('/upload/');
     const attachmentParam = name ? `fl_attachment:${encodeURIComponent(name.replace(/[^a-zA-Z0-9.-]/g, '_'))}` : 'fl_attachment';
     finalUrl = `${parts[0]}/upload/${attachmentParam}/${parts[1]}`;
   }
   return finalUrl;
+};
+
+const handleRawDownload = async (e, url, name) => {
+  if (url && url.includes('res.cloudinary.com') && url.includes('/raw/upload/')) {
+    e.preventDefault();
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Network response was not ok');
+      const blob = await response.blob();
+      const objectUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = name || 'download';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(objectUrl);
+    } catch (err) {
+      console.error('Download failed, falling back to default behavior', err);
+      window.open(url, '_blank');
+    }
+  }
 };
 
 const toProxyUrl = (url) => {
@@ -667,6 +692,7 @@ export default function ModuleReader() {
                                 <a 
                                   key={idx} 
                                   href={isLink ? formatExternalUrl(file.url) : getDownloadUrl(file.url, file.name)} 
+                                  onClick={(e) => !isLink && handleRawDownload(e, file.url, file.name)}
                                   target="_blank"
                                   rel="noopener noreferrer" 
                                   download={!isLink}
