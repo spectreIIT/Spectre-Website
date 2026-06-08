@@ -1212,6 +1212,7 @@ export default function ModuleEditor() {
                     <option value="draft">Draft</option>
                     <option value="active">Active (Live)</option>
                     <option value="hidden">Hidden (Admins only)</option>
+                    <option value="scheduled">Visible on scheduled date</option>
                   </select>
                 </div>
 

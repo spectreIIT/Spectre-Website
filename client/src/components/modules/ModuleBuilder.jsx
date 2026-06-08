@@ -164,6 +164,21 @@ export default function ModuleBuilder({ eventId = null, onSaved }) {
             Hidden
           </span>
         );
+      case 'scheduled':
+        return (
+          <span style={{ 
+            fontSize: '0.72rem', 
+            fontWeight: 700, 
+            padding: '4px 10px', 
+            borderRadius: '20px', 
+            background: 'rgba(56, 189, 248, 0.1)', 
+            color: '#38bdf8', 
+            border: '1px solid rgba(56, 189, 248, 0.2)',
+            textTransform: 'uppercase'
+          }}>
+            Scheduled
+          </span>
+        );
       case 'active':
       default:
         return (
@@ -208,6 +223,8 @@ export default function ModuleBuilder({ eventId = null, onSaved }) {
         matchesStatus = mod.status === 'active' || !mod.status;
       } else if (statusFilter === 'hidden') {
         matchesStatus = mod.status === 'hidden';
+      } else if (statusFilter === 'scheduled') {
+        matchesStatus = mod.status === 'scheduled';
       }
     }
     
@@ -600,6 +617,7 @@ export default function ModuleBuilder({ eventId = null, onSaved }) {
             >
               <option value="All">All Modules</option>
               <option value="active">Active</option>
+              <option value="scheduled">Scheduled</option>
               <option value="hidden">Hidden</option>
               <option value="draft">Drafts Only</option>
             </select>

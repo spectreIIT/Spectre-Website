@@ -60,7 +60,7 @@ const moduleSchema = new mongoose.Schema({
   banner: { type: String, default: '' }, // Optional thumbnail/banner URL
   difficulty: { type: String, enum: ['Beginner', 'Intermediate', 'Advanced'], default: 'Beginner' },
   category: { type: String, default: 'General' }, // Tags/categories
-  status: { type: String, enum: ['draft', 'active', 'hidden'], default: 'draft' },
+  status: { type: String, enum: ['draft', 'active', 'hidden', 'scheduled'], default: 'draft' },
   unlocked: { type: Boolean, default: true },
   prerequisites: [{
     type: mongoose.Schema.Types.ObjectId,
@@ -89,7 +89,7 @@ const moduleSchema = new mongoose.Schema({
 });
 
 moduleSchema.pre('validate', async function(next) {
-  if (this.status === 'active' || this.status === 'hidden') {
+  if (this.status === 'active' || this.status === 'hidden' || this.status === 'scheduled') {
     if (!this.title?.trim()) {
       this.invalidate('title', 'Title is required for live/hidden modules');
     }

@@ -57,10 +57,20 @@ router.get('/', protect, async (req, res) => {
       query.eventId = null;
     }
 
-    const modules = await Module.find(query)
+    let modules = await Module.find(query)
       .populate('prerequisites', '_id title icon')
       .populate('createdBy', '_id username')
       .sort({ order: 1, createdAt: 1 });
+
+    if (req.user.role === 'Member') {
+      modules = modules.filter(mod => {
+        if (!mod.status || mod.status === 'draft' || mod.status === 'hidden') return false;
+        if (mod.status === 'scheduled') {
+          if (!mod.scheduledFor || new Date() < new Date(mod.scheduledFor)) return false;
+        }
+        return true;
+      });
+    }
 
     // Load all user progress in one query
     const allProgress = await ModuleProgress.find({ user: req.user._id });
@@ -69,19 +79,6 @@ router.get('/', protect, async (req, res) => {
 
     const enriched = modules.map(mod => {
       const obj = mod.toObject();
-
-      // If user is Member and module is not active, securely strip all data
-      if (req.user.role === 'Member' && obj.status && obj.status !== 'active') {
-        return {
-          _id: obj._id,
-          title: obj.title,
-          status: obj.status,
-          isCompleted: false,
-          accessGranted: false,
-          canOpen: false,
-          canEdit: false
-        };
-      }
 
       const prog = progressMap[mod._id.toString()];
       const completedSet = new Set(prog?.completedSections || []);
@@ -230,8 +227,15 @@ router.get('/:moduleId', protect, async (req, res) => {
     const createdById = mod.createdBy?._id?.toString() || mod.createdBy?.toString();
     const isCreator = createdById === req.user._id.toString();
 
-    if (req.user.role === 'Member' && mod.status && mod.status !== 'active') {
-      return res.status(403).json({ message: 'Access Denied: Module is not active' });
+    if (req.user.role === 'Member') {
+      if (!mod.status || mod.status === 'draft' || mod.status === 'hidden') {
+        return res.status(403).json({ message: 'Access Denied: Module is not active' });
+      }
+      if (mod.status === 'scheduled') {
+        if (!mod.scheduledFor || new Date() < new Date(mod.scheduledFor)) {
+          return res.status(403).json({ message: 'Access Denied: Module is scheduled for a future time' });
+        }
+      }
     }
     // Supervisors are allowed to view draft modules created by other supervisors
     
