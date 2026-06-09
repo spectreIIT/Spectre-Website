@@ -230,7 +230,7 @@ function LandingPage() {
           </div>
         </div>
         <div className="footer-right">
-          <a href="https://github.com/spectreIIT" target="_blank" rel="noopener noreferrer" className="social-link"><Github size={20} /></a>
+          {/* <a href="https://github.com/spectreIIT" target="_blank" rel="noopener noreferrer" className="social-link"><Github size={20} /></a> */}
           <a href="https://discord.gg/7pzr7fPJe" target="_blank" rel="noopener noreferrer" className="social-link"><Discord size={20} /></a>
           <a href="https://www.linkedin.com/company/spectre-iit-bhilai/" target="_blank" rel="noopener noreferrer" className="social-link"><Linkedin size={20} /></a>
           <a href="https://www.instagram.com/spectre_iitbhilai?igsh=MWNxdHUyY2xueDJlMw==" target="_blank" rel="noopener noreferrer" className="social-link"><Instagram size={20} /></a>
