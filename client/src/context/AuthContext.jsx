@@ -175,6 +175,16 @@ export const AuthProvider = ({ children }) => {
     return { success: false, message: data.message };
   };
 
+  const resendOtp = async (email) => {
+    const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/auth/resend-otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    const data = await res.json();
+    return { success: res.ok, message: data.message };
+  };
+
   const forgotPassword = async (email) => {
     const res = await fetch(`${import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")}/api/auth/forgot-password`, {
       method: 'POST',
@@ -211,7 +221,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, verifyOtp, forgotPassword, resetPassword, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, verifyOtp, resendOtp, forgotPassword, resetPassword, logout }}>
       {children}
     </AuthContext.Provider>
   );

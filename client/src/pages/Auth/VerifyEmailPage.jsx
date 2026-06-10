@@ -8,8 +8,10 @@ const VerifyEmailPage = () => {
   const [otp, setOtp] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [resendStatus, setResendStatus] = useState('');
+  const [isResending, setIsResending] = useState(false);
   
-  const { verifyOtp } = useContext(AuthContext);
+  const { verifyOtp, resendOtp } = useContext(AuthContext);
   const navigate = useNavigate();
   const location = useLocation();
   const email = location.state?.email || '';
@@ -21,6 +23,7 @@ const VerifyEmailPage = () => {
     }
     
     setError('');
+    setResendStatus('');
     setIsSubmitting(true);
 
     try {
@@ -34,6 +37,25 @@ const VerifyEmailPage = () => {
       setError('An unexpected error occurred');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleResend = async () => {
+    if (!email) return setError('Email address is missing. Please sign up again.');
+    setError('');
+    setResendStatus('');
+    setIsResending(true);
+    try {
+      const result = await resendOtp(email);
+      if (result.success) {
+        setResendStatus(result.message || 'A new code has been sent.');
+      } else {
+        setError(result.message || 'Failed to resend code');
+      }
+    } catch (err) {
+      setError('An unexpected error occurred');
+    } finally {
+      setIsResending(false);
     }
   };
 
@@ -55,6 +77,7 @@ const VerifyEmailPage = () => {
         </div>
 
         {error && <div className="auth-error">{error}</div>}
+        {resendStatus && <div className="auth-error" style={{ background: 'rgba(34, 197, 94, 0.1)', color: '#22c55e', border: '1px solid rgba(34, 197, 94, 0.2)' }}>{resendStatus}</div>}
 
         <form className="auth-form" onSubmit={handleSubmit}>
           <div className="form-group">
@@ -83,7 +106,7 @@ const VerifyEmailPage = () => {
         </form>
         
         <div className="auth-footer">
-          Didn't receive it? <button type="button" className="text-btn">Resend Code</button>
+          Didn't receive it? <button type="button" className="text-btn" onClick={handleResend} disabled={isResending}>{isResending ? 'Sending...' : 'Resend Code'}</button>
         </div>
       </div>
     </div>

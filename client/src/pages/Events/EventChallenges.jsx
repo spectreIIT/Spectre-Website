@@ -33,7 +33,11 @@ export default function EventChallenges() {
     const fetchChallenges = async () => {
       try {
         const token = localStorage.getItem('token');
-        const res = await fetch(`${API_URL}/api/events/${event._id}/challenges`, {
+        const url = isPrivilegedView 
+          ? `${API_URL}/api/events/${event._id}/challenges`
+          : `${API_URL}/api/events/${event._id}/challenges?arena=true`;
+          
+        const res = await fetch(url, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (!res.ok) throw new Error('Failed to fetch event challenges');

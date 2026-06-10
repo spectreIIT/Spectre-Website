@@ -50,7 +50,7 @@ router.get('/', protect, async (req, res) => {
     } else if (req.user.role === 'Supervisor') {
       query = {}; // Supervisors can see all modules, including drafts by others
     }
-    
+
     if (req.query.eventId) {
       query.eventId = req.query.eventId;
     } else {
@@ -70,12 +70,11 @@ router.get('/', protect, async (req, res) => {
       }
     }
 
-    if (req.user.role === 'Member') {
+    const isArenaView = req.query.arena === 'true';
+    if (req.user.role === 'Member' || isArenaView) {
       modules = modules.filter(mod => {
         if (!mod.status || mod.status === 'draft' || mod.status === 'hidden') return false;
-        if (mod.status === 'scheduled') {
-          if (!mod.scheduledFor || new Date() < new Date(mod.scheduledFor)) return false;
-        }
+        if (mod.scheduledFor && new Date() < new Date(mod.scheduledFor)) return false;
         return true;
       });
     }
@@ -95,11 +94,11 @@ router.get('/', protect, async (req, res) => {
       const completedCount = mod.pages ? mod.pages.filter(p => completedSet.has(p.id)).length : 0;
       const isModuleDone = totalSections > 0 ? completedCount === totalSections : false;
       const completionPct = totalSections > 0 ? Math.round((completedCount / totalSections) * 100) : 0;
-      
+
       let earnedPoints = 0;
       let totalDeductions = 0;
       const revealedHints = new Set(prog?.revealedHints || []);
-      
+
       if (mod.pages) {
         mod.pages.forEach(p => {
           if (p.hints) {
@@ -134,14 +133,14 @@ router.get('/', protect, async (req, res) => {
       }
 
       if (mod.eventId && (isModuleDone || prog?.isCompleted)) {
-         const scheduleDate = mod.scheduledFor ? new Date(mod.scheduledFor) : new Date(mod.createdAt);
-         const completionDate = new Date(prog?.lastActivityAt || new Date());
-         
-         const releaseDay = scheduleDate.toISOString().split('T')[0];
-         const completionDay = completionDate.toISOString().split('T')[0];
-         if (releaseDay === completionDay) {
-            earnedPoints += 5;
-         }
+        const scheduleDate = mod.scheduledFor ? new Date(mod.scheduledFor) : new Date(mod.createdAt);
+        const completionDate = new Date(prog?.lastActivityAt || new Date());
+
+        const releaseDay = scheduleDate.toISOString().split('T')[0];
+        const completionDay = completionDate.toISOString().split('T')[0];
+        if (releaseDay === completionDay) {
+          earnedPoints += 5;
+        }
       }
 
       // Prerequisite check
@@ -158,11 +157,11 @@ router.get('/', protect, async (req, res) => {
       let canOpen = true;
       let canEdit = true;
 
-      if (req.user.role === 'Supervisor') {
+      if (req.user.role === 'Supervisor' && !isArenaView) {
         if (!isCreator) {
           canEdit = false;
         }
-      } else if (req.user.role === 'Member') {
+      } else if (req.user.role === 'Member' || isArenaView) {
         canEdit = false;
         if (obj.status !== 'active') {
           canOpen = false;
@@ -173,7 +172,7 @@ router.get('/', protect, async (req, res) => {
       let sanitizedPages = obj.pages || [];
       let sanitizedChallenge = obj.challenge || {};
 
-      if (req.user.role === 'Member') {
+      if (req.user.role === 'Member' || isArenaView) {
         const revealedHints = new Set(prog?.revealedHints || []);
         sanitizedPages = sanitizedPages.map(page => {
           page.flag = undefined;
@@ -215,7 +214,7 @@ router.get('/', protect, async (req, res) => {
         totalSections,
         isCompleted: isModuleDone,
         prerequisitesMet,
-        accessGranted: isPrivileged || isCreator || (obj.unlocked && prerequisitesMet),
+        accessGranted: (isPrivileged && !isArenaView) || isCreator || (obj.unlocked && prerequisitesMet),
         isVisible: true,
         canOpen,
         canEdit
@@ -235,34 +234,33 @@ router.get('/:moduleId', protect, async (req, res) => {
     if (!req.params.moduleId.match(/^[0-9a-fA-C]{24}$/)) {
       return res.status(404).json({ message: 'Module not found' });
     }
-    
+
     const mod = await Module.findById(req.params.moduleId)
       .populate('prerequisites', '_id title icon')
       .populate('createdBy', '_id username');
-      
+
     if (!mod) return res.status(404).json({ message: 'Module not found' });
-    
+
     if (mod.status === 'scheduled' && mod.scheduledFor && new Date(mod.scheduledFor) <= new Date()) {
       mod.status = 'active';
       await mod.save();
     }
-    
+
     // Enforce scoping access controls
     const createdById = mod.createdBy?._id?.toString() || mod.createdBy?.toString();
     const isCreator = createdById === req.user._id.toString();
 
-    if (req.user.role === 'Member') {
+    const isArenaView = req.query.arena === 'true';
+    if (req.user.role === 'Member' || isArenaView) {
       if (!mod.status || mod.status === 'draft' || mod.status === 'hidden') {
         return res.status(403).json({ message: 'Access Denied: Module is not active' });
       }
-      if (mod.status === 'scheduled') {
-        if (!mod.scheduledFor || new Date() < new Date(mod.scheduledFor)) {
-          return res.status(403).json({ message: 'Access Denied: Module is scheduled for a future time' });
-        }
+      if (mod.scheduledFor && new Date() < new Date(mod.scheduledFor)) {
+        return res.status(403).json({ message: 'Access Denied: Module is scheduled for a future time' });
       }
     }
     // Supervisors are allowed to view draft modules created by other supervisors
-    
+
     let sanitizedMod = mod.toObject();
     if (req.user.role === 'Member') {
       const progress = await ModuleProgress.findOne({ user: req.user._id, moduleId: req.params.moduleId });
@@ -295,7 +293,7 @@ router.get('/:moduleId', protect, async (req, res) => {
         }
       }
     }
-    
+
     res.json(sanitizedMod);
   } catch (err) {
     console.error('Error fetching module:', err);
@@ -341,23 +339,23 @@ router.post('/:moduleId/progress/section', protect, async (req, res) => {
     const progress = await ModuleProgress.findOne({ user: req.user._id, moduleId: req.params.moduleId });
     let newlyAdded = false;
     if (progress) {
-       if (!progress.completedSections.includes(sectionId)) {
-          progress.completedSections.push(sectionId);
-          if (eventActive && !progress.completedSectionsDuringEvent.includes(sectionId)) {
-            progress.completedSectionsDuringEvent.push(sectionId);
-          }
-          progress.lastActivityAt = new Date();
-          newlyAdded = true;
-       }
+      if (!progress.completedSections.includes(sectionId)) {
+        progress.completedSections.push(sectionId);
+        if (eventActive && !progress.completedSectionsDuringEvent.includes(sectionId)) {
+          progress.completedSectionsDuringEvent.push(sectionId);
+        }
+        progress.lastActivityAt = new Date();
+        newlyAdded = true;
+      }
     } else {
-       const newProg = new ModuleProgress({
-          user: req.user._id,
-          moduleId: req.params.moduleId,
-          completedSections: [sectionId],
-          completedSectionsDuringEvent: eventActive ? [sectionId] : []
-       });
-       await newProg.save();
-       newlyAdded = true;
+      const newProg = new ModuleProgress({
+        user: req.user._id,
+        moduleId: req.params.moduleId,
+        completedSections: [sectionId],
+        completedSectionsDuringEvent: eventActive ? [sectionId] : []
+      });
+      await newProg.save();
+      newlyAdded = true;
     }
 
     const currentProg = progress || await ModuleProgress.findOne({ user: req.user._id, moduleId: req.params.moduleId });
@@ -366,7 +364,7 @@ router.post('/:moduleId/progress/section', protect, async (req, res) => {
     if (mod) {
       const completedSet = new Set(currentProg.completedSections || []);
       const allCompleted = mod.pages.every(p => completedSet.has(p.id));
-      
+
       let triggerRecalc = false;
 
       if (allCompleted && !currentProg.isCompleted) {
@@ -414,10 +412,10 @@ router.post('/:moduleId/progress/section', protect, async (req, res) => {
 router.post('/:moduleId/hints/:hintId/reveal', protect, async (req, res) => {
   try {
     const { moduleId, hintId } = req.params;
-    
+
     let progress = await ModuleProgress.findOne({ user: req.user._id, moduleId });
     if (!progress) {
-       progress = new ModuleProgress({ user: req.user._id, moduleId, completedSections: [], completedQuestions: [], completedSectionsDuringEvent: [], completedQuestionsDuringEvent: [], revealedHints: [] });
+      progress = new ModuleProgress({ user: req.user._id, moduleId, completedSections: [], completedQuestions: [], completedSectionsDuringEvent: [], completedQuestionsDuringEvent: [], revealedHints: [] });
     }
 
     if (!progress.revealedHints) {
@@ -428,7 +426,7 @@ router.post('/:moduleId/hints/:hintId/reveal', protect, async (req, res) => {
     if (!progress.revealedHints.includes(hintId)) {
       progress.revealedHints.push(hintId);
       await progress.save();
-      
+
       const mod = await Module.findById(moduleId);
       if (mod) {
         await recalculateUserScore(req.user._id);
@@ -504,7 +502,7 @@ router.post('/:moduleId/challenge/:pageId/submit', protect, async (req, res) => 
           }
         }
         if (!alreadySolved) {
-           return res.status(403).json({ message: 'Event has concluded. Please solve this module in the Global Modules tab.' });
+          return res.status(403).json({ message: 'Event has concluded. Please solve this module in the Global Modules tab.' });
         }
       }
     }
@@ -519,7 +517,7 @@ router.post('/:moduleId/challenge/:pageId/submit', protect, async (req, res) => 
       const isCaseSensitive = !!question.caseSensitive;
       const validAnswers = question.answer.split(',').map(a => isCaseSensitive ? a.trim() : a.trim().toLowerCase());
       const submitted = isCaseSensitive ? submittedAnswer.trim() : submittedAnswer.trim().toLowerCase();
-      
+
       if (!validAnswers.includes(submitted)) {
         return res.status(400).json({ message: 'Incorrect answer' });
       }
@@ -534,7 +532,7 @@ router.post('/:moduleId/challenge/:pageId/submit', protect, async (req, res) => 
       const isCaseSensitive = !!page.caseSensitive;
       const validFlags = page.flag.split(',').map(f => isCaseSensitive ? f.trim() : f.trim().toLowerCase());
       const submitted = isCaseSensitive ? submittedAnswer.trim() : submittedAnswer.trim().toLowerCase();
-      
+
       if (!validFlags.includes(submitted)) {
         return res.status(400).json({ message: 'Incorrect flag' });
       }
@@ -546,50 +544,50 @@ router.post('/:moduleId/challenge/:pageId/submit', protect, async (req, res) => 
     // Using findOneAndUpdate to pull the existing document
     let progress = await ModuleProgress.findOne({ user: req.user._id, moduleId: req.params.moduleId });
     if (!progress) {
-       progress = new ModuleProgress({ user: req.user._id, moduleId: req.params.moduleId, completedSections: [], completedQuestions: [], completedSectionsDuringEvent: [], completedQuestionsDuringEvent: [] });
+      progress = new ModuleProgress({ user: req.user._id, moduleId: req.params.moduleId, completedSections: [], completedQuestions: [], completedSectionsDuringEvent: [], completedQuestionsDuringEvent: [] });
     }
 
     let newlyCompletedPage = false;
 
     if (isQuestionLevel) {
-       if (!progress.completedQuestions) progress.completedQuestions = [];
-       if (!progress.completedQuestionsDuringEvent) progress.completedQuestionsDuringEvent = [];
-       if (!progress.completedQuestions.includes(questionId)) {
-          progress.completedQuestions.push(questionId);
-          if (eventActive && !progress.completedQuestionsDuringEvent.includes(questionId)) {
-            progress.completedQuestionsDuringEvent.push(questionId);
-          }
-       }
-       // Check if all questions on page are answered
-       const allQIds = page.questions.map(q => q.id);
-       const completedQs = new Set(progress.completedQuestions);
-       const allPageQsAnswered = allQIds.every(id => completedQs.has(id));
-       
-       if (allPageQsAnswered && !progress.completedSections.includes(page.id)) {
-           progress.completedSections.push(page.id);
-           if (eventActive && !progress.completedSectionsDuringEvent.includes(page.id)) {
-             progress.completedSectionsDuringEvent.push(page.id);
-           }
-           newlyCompletedPage = true;
-       }
+      if (!progress.completedQuestions) progress.completedQuestions = [];
+      if (!progress.completedQuestionsDuringEvent) progress.completedQuestionsDuringEvent = [];
+      if (!progress.completedQuestions.includes(questionId)) {
+        progress.completedQuestions.push(questionId);
+        if (eventActive && !progress.completedQuestionsDuringEvent.includes(questionId)) {
+          progress.completedQuestionsDuringEvent.push(questionId);
+        }
+      }
+      // Check if all questions on page are answered
+      const allQIds = page.questions.map(q => q.id);
+      const completedQs = new Set(progress.completedQuestions);
+      const allPageQsAnswered = allQIds.every(id => completedQs.has(id));
+
+      if (allPageQsAnswered && !progress.completedSections.includes(page.id)) {
+        progress.completedSections.push(page.id);
+        if (eventActive && !progress.completedSectionsDuringEvent.includes(page.id)) {
+          progress.completedSectionsDuringEvent.push(page.id);
+        }
+        newlyCompletedPage = true;
+      }
     } else {
-       if (!progress.completedSections.includes(page.id)) {
-           progress.completedSections.push(page.id);
-           if (eventActive && !progress.completedSectionsDuringEvent.includes(page.id)) {
-             progress.completedSectionsDuringEvent.push(page.id);
-           }
-           newlyCompletedPage = true;
-       }
+      if (!progress.completedSections.includes(page.id)) {
+        progress.completedSections.push(page.id);
+        if (eventActive && !progress.completedSectionsDuringEvent.includes(page.id)) {
+          progress.completedSectionsDuringEvent.push(page.id);
+        }
+        newlyCompletedPage = true;
+      }
     }
-    
+
     // Add user to page solves list if legacy single flag (backward compatible)
     if (!isQuestionLevel && newlyCompletedPage) {
-        const hasSolved = page.solves?.some(uid => uid.toString() === req.user._id.toString());
-        if (!hasSolved) {
-          page.solves = page.solves || [];
-          page.solves.push(req.user._id);
-          await mod.save();
-        }
+      const hasSolved = page.solves?.some(uid => uid.toString() === req.user._id.toString());
+      if (!hasSolved) {
+        page.solves = page.solves || [];
+        page.solves.push(req.user._id);
+        await mod.save();
+      }
     }
 
     // Check if the entire module is completed (all pages in mod.pages are in completedSections)
@@ -603,7 +601,7 @@ router.post('/:moduleId/challenge/:pageId/submit', protect, async (req, res) => 
 
     progress.lastActivityAt = new Date();
     await progress.save();
-    
+
     // Always recalculate because pointsMode='page' might award points per question or page
     await recalculateUserScore(req.user._id);
     if (mod.eventId) {
@@ -617,7 +615,7 @@ router.post('/:moduleId/challenge/:pageId/submit', protect, async (req, res) => 
         { $setOnInsert: { userId: req.user._id, type: 'module', date: toUTCMidnightFn() } },
         { upsert: true }
       );
-    } catch (_) {}
+    } catch (_) { }
 
     res.json({ message: isQuestionLevel ? 'Correct answer!' : 'Correct flag! Lab solved.', progress, isModuleCompleted: progress.isCompleted });
   } catch (err) {
@@ -635,10 +633,10 @@ router.post('/:moduleId/complete', protect, async (req, res) => {
     if (mod.eventId) {
       const event = await Event.findById(mod.eventId);
       if (event && new Date() > new Date(event.endDate)) {
-         const progress = await ModuleProgress.findOne({ user: req.user._id, moduleId: req.params.moduleId });
-         if (!progress || !progress.isCompleted) {
-            return res.status(403).json({ message: 'Event has concluded. Please complete this module in the Global Modules tab.' });
-         }
+        const progress = await ModuleProgress.findOne({ user: req.user._id, moduleId: req.params.moduleId });
+        if (!progress || !progress.isCompleted) {
+          return res.status(403).json({ message: 'Event has concluded. Please complete this module in the Global Modules tab.' });
+        }
       }
     }
 

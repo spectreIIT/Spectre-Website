@@ -33,7 +33,11 @@ export default function EventModules() {
     try {
       const token = localStorage.getItem('token');
       
-      const res = await fetch(`${API_URL}/api/modules?eventId=${event._id}`, {
+      const url = isPrivilegedView 
+        ? `${API_URL}/api/modules?eventId=${event._id}`
+        : `${API_URL}/api/modules?eventId=${event._id}&arena=true`;
+        
+      const res = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {

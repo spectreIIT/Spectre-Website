@@ -38,6 +38,14 @@ function SupervisorPanel() {
     }
   }, [activeTab]);
 
+  const [userSearchTerm, setUserSearchTerm] = useState('');
+
+  const filteredUsers = users.filter(u => {
+    const term = userSearchTerm.toLowerCase();
+    return (u.username && u.username.toLowerCase().includes(term)) || 
+           (u.email && u.email.toLowerCase().includes(term));
+  });
+
   return (
     <div className="dashboard-main-container" style={{ flexDirection: 'column' }}>
       <div className="section-header">
@@ -69,7 +77,16 @@ function SupervisorPanel() {
       <div style={{ flex: 1 }}>
         {activeTab === 'users' && (
           <div>
-            <h3 style={{ color: '#fff', marginBottom: '16px' }}>Registered Users (Read Only)</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ color: '#fff', margin: 0 }}>Registered Users (Read Only) <span style={{ color: '#64748b', fontSize: '0.9rem', marginLeft: '8px' }}>({users.length} total)</span></h3>
+              <input
+                type="text"
+                placeholder="Search by username or email..."
+                value={userSearchTerm}
+                onChange={e => setUserSearchTerm(e.target.value)}
+                style={{ backgroundColor: '#12141a', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', padding: '8px 12px', borderRadius: '8px', fontSize: '0.85rem', width: '300px' }}
+              />
+            </div>
             <div style={{ backgroundColor: '#12141a', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', overflow: 'hidden', marginBottom: '11px' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.8rem' }}>
                 <thead>
@@ -84,7 +101,7 @@ function SupervisorPanel() {
                   </tr>
                 </thead>
                 <tbody>
-                  {users.map(u => (
+                  {filteredUsers.map(u => (
                     <tr key={u._id} style={{ borderTop: '1px solid rgba(255,255,255,0.05)', color: '#fff' }}>
                       <td 
                         style={{ padding: '12px 16px', fontWeight: 600, color: '#00f0ff', cursor: 'pointer'}}

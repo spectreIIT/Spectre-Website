@@ -408,7 +408,9 @@ router.get('/:id/challenges', protect, async (req, res) => {
     if (!event) return res.status(404).json({ message: 'Event not found' });
 
     let query = { eventId: event._id };
-    if (req.user.role === 'Member') {
+    const isArenaView = req.query.arena === 'true';
+
+    if (req.user.role === 'Member' || isArenaView) {
       if (event.status !== 'active' && event.status !== 'archived') {
         return res.status(403).json({ message: 'Event is not active' });
       }
@@ -429,7 +431,7 @@ router.get('/:id/challenges', protect, async (req, res) => {
         { scheduledFor: { $exists: false } },
         { scheduledFor: { $lte: now } }
       ];
-    } else if (req.user.role === 'Supervisor') {
+    } else if (req.user.role === 'Supervisor' && !isArenaView) {
       // Supervisors can see all challenges in the event if they are organizers, otherwise only active/hidden + their own
       query.$or = [
         { status: { $in: ['active', 'hidden'] } },
