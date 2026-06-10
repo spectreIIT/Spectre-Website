@@ -72,11 +72,7 @@ router.get('/', protect, async (req, res) => {
 
     const isArenaView = req.query.arena === 'true';
     if (req.user.role === 'Member' || isArenaView) {
-      modules = modules.filter(mod => {
-        if (!mod.status || mod.status === 'draft' || mod.status === 'hidden') return false;
-        if (mod.scheduledFor && new Date() < new Date(mod.scheduledFor)) return false;
-        return true;
-      });
+      modules = modules.filter(mod => mod.status === 'active');
     }
 
     // Load all user progress in one query
@@ -252,11 +248,8 @@ router.get('/:moduleId', protect, async (req, res) => {
 
     const isArenaView = req.query.arena === 'true';
     if (req.user.role === 'Member' || isArenaView) {
-      if (!mod.status || mod.status === 'draft' || mod.status === 'hidden') {
+      if (mod.status !== 'active') {
         return res.status(403).json({ message: 'Access Denied: Module is not active' });
-      }
-      if (mod.scheduledFor && new Date() < new Date(mod.scheduledFor)) {
-        return res.status(403).json({ message: 'Access Denied: Module is scheduled for a future time' });
       }
     }
     // Supervisors are allowed to view draft modules created by other supervisors

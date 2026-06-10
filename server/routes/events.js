@@ -426,11 +426,6 @@ router.get('/:id/challenges', protect, async (req, res) => {
         if (!reg) return res.status(403).json({ message: 'You must register for this event to view challenges' });
       }
       query.status = 'active';
-      query.$or = [
-        { scheduledFor: null },
-        { scheduledFor: { $exists: false } },
-        { scheduledFor: { $lte: now } }
-      ];
     } else if (req.user.role === 'Supervisor' && !isArenaView) {
       // Supervisors can see all challenges in the event if they are organizers, otherwise only active/hidden + their own
       query.$or = [
@@ -494,11 +489,6 @@ router.get('/:id/modules', protect, async (req, res) => {
         if (!reg) return res.status(403).json({ message: 'You must register for this event to view modules' });
       }
       query.status = 'active';
-      query.$or = [
-        { scheduledFor: null },
-        { scheduledFor: { $exists: false } },
-        { scheduledFor: { $lte: new Date() } }
-      ];
     } else if (req.user.role === 'Supervisor') {
       query.$or = [
         { status: { $in: ['active', 'hidden'] } },
