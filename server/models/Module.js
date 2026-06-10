@@ -133,22 +133,7 @@ moduleSchema.pre('validate', async function(next) {
     }
   }
 
-  if (this.eventId) {
-    const Event = mongoose.model('Event');
-    const event = await Event.findById(this.eventId);
-    if (event && event.startDate) {
-      if (this.scheduledFor && new Date(this.scheduledFor) <= new Date(event.startDate)) {
-        this.invalidate('scheduledFor', 'Module scheduled time must be strictly after the event start time');
-      }
-      if (this.pages) {
-        this.pages.forEach((page, idx) => {
-          if (page.scheduledFor && new Date(page.scheduledFor) <= new Date(event.startDate)) {
-            this.invalidate(`pages.${idx}.scheduledFor`, `Page scheduled time must be strictly after the event start time`);
-          }
-        });
-      }
-    }
-  }
+  // Validation for scheduledFor against event.startDate has been removed to allow edits to active modules.
 
   next();
 });

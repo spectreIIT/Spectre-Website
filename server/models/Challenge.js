@@ -59,15 +59,7 @@ challengeSchema.pre('validate', async function(next) {
     }
   }
 
-  if (this.scheduledFor && this.eventId) {
-    const Event = mongoose.model('Event');
-    const event = await Event.findById(this.eventId);
-    if (event && event.startDate) {
-      if (new Date(this.scheduledFor) <= new Date(event.startDate)) {
-        this.invalidate('scheduledFor', 'Scheduled time must be strictly after the event start time');
-      }
-    }
-  }
+  // Validation for scheduledFor against event.startDate has been removed to allow edits to active challenges.
 
   next();
 });
