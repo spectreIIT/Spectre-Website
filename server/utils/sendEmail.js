@@ -12,6 +12,13 @@ const sendEmail = async (options) => {
         apiKey: process.env.BREVO_API_KEY,
       });
 
+      // Check account limits before sending, as Brevo silently queues if limit is reached
+      const accountData = await brevo.account.getAccount();
+      const sendLimitPlan = accountData.plan.find(p => p.creditsType === 'sendLimit');
+      if (sendLimitPlan && sendLimitPlan.credits <= 0) {
+        throw new Error('Brevo daily limit reached (0 credits available).');
+      }
+
       const data = await brevo.transactionalEmails.sendTransacEmail({
         sender: {
           name: fromName,
