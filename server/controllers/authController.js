@@ -52,7 +52,16 @@ export const registerUser = async (req, res) => {
         await sendEmail({
           email: pendingUser.email,
           subject: 'Spectre IIT-Bhilai - Email Verification',
-          message: `Your verification code is: ${otp}. It will expire in 10 minutes.`,
+          message: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+              <h2 style="color: #333;">Verify Your Email</h2>
+              <p>Welcome to Spectre CTF! Please use the following verification code to complete your registration:</p>
+              <div style="font-size: 24px; font-weight: bold; letter-spacing: 4px; color: #00f0ff; background: #111; padding: 15px; text-align: center; border-radius: 4px; margin: 20px 0;">
+                ${otp}
+              </div>
+              <p>This code will expire in 10 minutes.</p>
+            </div>
+          `,
         });
         res.status(201).json({ message: 'Registration successful. Please verify your email.' });
       } catch (emailError) {
@@ -167,7 +176,16 @@ export const resendOtp = async (req, res) => {
     await sendEmail({
       email: pendingUser.email,
       subject: 'Spectre IIT-Bhilai - Resend Verification',
-      message: `Your new verification code is: ${otp}. It will expire in 2 minutes.`,
+      message: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+          <h2 style="color: #333;">Verify Your Email</h2>
+          <p>Here is your new verification code for Spectre CTF:</p>
+          <div style="font-size: 24px; font-weight: bold; letter-spacing: 4px; color: #00f0ff; background: #111; padding: 15px; text-align: center; border-radius: 4px; margin: 20px 0;">
+            ${otp}
+          </div>
+          <p>This code will expire in 2 minutes.</p>
+        </div>
+      `,
     });
 
     res.json({ message: 'A new OTP has been sent to your email.' });
@@ -305,7 +323,15 @@ export const forgotPassword = async (req, res) => {
     await sendEmail({
       email: user.email,
       subject: 'Spectre IIT-Bhilai - Password Reset',
-      message: `Click the following link to reset your password: <a href="${resetLink}">${resetLink}</a>. It will expire in 10 minutes.`,
+      message: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+          <h2 style="color: #333;">Password Reset Request</h2>
+          <p>You requested to reset your password for Spectre CTF.</p>
+          <p>Please click the button below to choose a new password. This link will expire in 10 minutes.</p>
+          <a href="${resetLink}" style="display: inline-block; padding: 12px 24px; margin: 20px 0; background-color: #00f0ff; color: #000; text-decoration: none; font-weight: bold; border-radius: 4px;">Reset Password</a>
+          <p style="color: #666; font-size: 14px;">If you did not request this, please ignore this email.</p>
+        </div>
+      `,
     });
 
     res.status(200).json({ message: 'If the email exists, a reset link was sent.' });

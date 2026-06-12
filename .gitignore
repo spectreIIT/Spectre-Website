@@ -18,3 +18,4 @@ find-users.js
 migrate_progress.js
 reset-passwords.js
 syncSolves.js
+crack-hash.js
