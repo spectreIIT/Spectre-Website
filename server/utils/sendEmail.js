@@ -2,7 +2,8 @@ import { BrevoClient } from '@getbrevo/brevo';
 import { Resend } from 'resend';
 
 const sendEmail = async (options) => {
-  const fromEmail = process.env.EMAIL_USER || 'support@0xspectre.tech';
+  // Use a consistent sender across both platforms
+  const fromEmail = process.env.EMAIL_USER || 'admin@0xspectre.tech';
   const fromName = 'Spectre IIT-Bhilai';
   
   // Try Brevo first
@@ -30,14 +31,13 @@ const sendEmail = async (options) => {
           },
         ],
         subject: options.subject,
-        htmlContent: options.html || options.message, // Support both HTML and plain text
+        htmlContent: options.html || options.message,
       });
 
-      console.log('Email sent successfully via Brevo');
+      console.log(`Email sent successfully via Brevo from ${fromEmail}`);
       return data;
     } catch (brevoError) {
       console.warn('Brevo failed or limit reached. Falling back to Resend...', brevoError.message);
-      // Let it fall through to Resend logic
     }
   } else {
     console.warn('BREVO_API_KEY not set. Skipping Brevo...');
@@ -60,7 +60,7 @@ const sendEmail = async (options) => {
         throw new Error('There was a problem sending the email. Please try again later.');
       }
 
-      console.log('Email sent successfully via Resend');
+      console.log(`Email sent successfully via Resend from ${fromEmail}`);
       return data;
     } catch (resendError) {
       console.error('Resend fallback failed:', resendError.message);
