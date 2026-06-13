@@ -6,7 +6,33 @@ const sendEmail = async (options) => {
   const fromEmail = process.env.EMAIL_USER || 'admin@0xspectre.tech';
   const fromName = 'Spectre IIT-Bhilai';
   
-  // Try Brevo first
+  // Try Resend first
+  if (process.env.RESEND_API_KEY) {
+    try {
+      const resend = new Resend(process.env.RESEND_API_KEY);
+      
+      const { data, error } = await resend.emails.send({
+        from: `${fromName} <${fromEmail}>`,
+        to: [options.email],
+        subject: options.subject,
+        html: options.html || options.message,
+      });
+
+      if (error) {
+        // Resend API returns errors here (e.g., limit reached, unauthorized)
+        throw new Error(`Resend API error: ${error.message}`);
+      }
+
+      console.log(`Email sent successfully via Resend to ${options.email}`);
+      return data;
+    } catch (resendError) {
+      console.warn('Resend failed or limit reached. Falling back to Brevo...', resendError.message);
+    }
+  } else {
+    console.warn('RESEND_API_KEY not set. Skipping Resend...');
+  }
+
+  // Fallback to Brevo
   if (process.env.BREVO_API_KEY) {
     try {
       const brevo = new BrevoClient({
@@ -34,36 +60,10 @@ const sendEmail = async (options) => {
         htmlContent: options.html || options.message,
       });
 
-      console.log(`Email sent successfully via Brevo from ${fromEmail}`);
+      console.log(`Email sent successfully via Brevo to ${options.email}`);
       return data;
     } catch (brevoError) {
-      console.warn('Brevo failed or limit reached. Falling back to Resend...', brevoError.message);
-    }
-  } else {
-    console.warn('BREVO_API_KEY not set. Skipping Brevo...');
-  }
-
-  // Fallback to Resend
-  if (process.env.RESEND_API_KEY) {
-    try {
-      const resend = new Resend(process.env.RESEND_API_KEY);
-      
-      const { data, error } = await resend.emails.send({
-        from: `${fromName} <${fromEmail}>`,
-        to: [options.email],
-        subject: options.subject,
-        html: options.html || options.message,
-      });
-
-      if (error) {
-        console.error('Resend API error:', error.message);
-        throw new Error('There was a problem sending the email. Please try again later.');
-      }
-
-      console.log(`Email sent successfully via Resend from ${fromEmail}`);
-      return data;
-    } catch (resendError) {
-      console.error('Resend fallback failed:', resendError.message);
+      console.error('Brevo fallback failed:', brevoError.message);
       throw new Error('There was a problem sending the email. Please try again later.');
     }
   }
