@@ -11,7 +11,8 @@
 
 .cm-modal {
   width: 90%;
-  max-width: 600px;
+  max-width: 960px;
+  min-width: 580px;
   max-height: 90vh;
   background: #171922;
   border-radius: 16px;
@@ -75,6 +76,10 @@
 
 .cm-content::-webkit-scrollbar { width: 4px; }
 .cm-content::-webkit-scrollbar-thumb { background: #ff7b1a; border-radius: 10px; }
+
+/* Right sidebar scrollbar */
+.cm-modal > div > div:last-child::-webkit-scrollbar { width: 3px; }
+.cm-modal > div > div:last-child::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 10px; }
 
 .cm-header { margin-bottom: 15px; }
 

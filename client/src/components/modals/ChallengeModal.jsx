@@ -170,24 +170,26 @@ const ChallengeModal = ({ challenge: initialChallenge, onClose, onSolve, eventId
   };
 
   return (
-    <div className={`cm-overlay ${isAnimating}`} onClick={onClose}>
+    <div className={`cm-overlay ${isAnimating}`} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div 
         className={`cm-modal ${isAnimating}`} 
         onClick={e => e.stopPropagation()}
-        style={{ maxWidth: '900px', width: '95%', height: '85vh' }}
+        style={{ maxWidth: '960px', width: '95%', height: '85vh', minWidth: '600px' }}
       >
-        <button className="cm-close-top" onClick={onClose}>
-          <X size={14} />
-        </button>
+
 
         {/* Outer Grid Wrapper */}
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden', height: '100%' }}>
           
           {/* LEFT PANEL: TABBED VIEWER */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', backgroundColor: '#14161d', borderRight: '1px solid rgba(255,255,255,0.05)' }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', backgroundColor: '#14161d', borderRight: '1px solid rgba(255,255,255,0.05)', minWidth: 0 }}>
             
             {/* Modal Header */}
-            <div style={{ padding: '24px 28px 12px 28px' }}>
+            <div style={{ padding: '24px 28px 12px 28px', position: 'relative' }}>
+              {/* Close button lives here so it never overlaps the right panel */}
+              <button className="cm-close-top" onClick={onClose} style={{ position: 'absolute', top: '12px', right: '12px' }}>
+                <X size={14} />
+              </button>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                 <span className="cm-tag cm-category">{challenge.category}</span>
                 <span className={`cm-tag cm-difficulty ${diffDisplay.toLowerCase()}`} style={{ fontWeight: '700', textTransform: 'uppercase' }}>
@@ -271,7 +273,7 @@ const ChallengeModal = ({ challenge: initialChallenge, onClose, onSolve, eventId
                       </span>
                     </div>
                   )}
-                  <div style={{ whiteSpace: 'pre-wrap' }}>
+                  <div style={{ whiteSpace: 'pre-wrap', overflowWrap: 'break-word', wordBreak: 'break-word' }}>
                     {challenge.description}
                   </div>
                 </div>
@@ -326,7 +328,12 @@ const ChallengeModal = ({ challenge: initialChallenge, onClose, onSolve, eventId
                         <div key={idx} className="cm-hint-item">
                           {isUnlocked ? (
                             <div style={{ padding: '12px 16px', backgroundColor: '#181b24', border: '1px solid rgba(168,85,247,0.2)', borderRadius: '8px', color: '#cbd5e1', fontSize: '0.85rem' }}>
-                              <div style={{ fontSize: '0.7rem', color: '#a855f7', fontWeight: '800', textTransform: 'uppercase', marginBottom: '6px' }}>Hint #{idx + 1} Unlocked</div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                <span style={{ fontSize: '0.7rem', color: '#a855f7', fontWeight: '800', textTransform: 'uppercase' }}>Hint #{idx + 1} Unlocked</span>
+                                {hint.cost > 0 && (
+                                  <span style={{ fontSize: '0.7rem', color: '#ef4444', fontWeight: '700' }}>-{hint.cost} PTS</span>
+                                )}
+                              </div>
                               {hint.text}
                             </div>
                           ) : (
@@ -350,6 +357,7 @@ const ChallengeModal = ({ challenge: initialChallenge, onClose, onSolve, eventId
                       </div>
                     )}
                   </div>
+
                 </div>
               )}
 
@@ -358,7 +366,7 @@ const ChallengeModal = ({ challenge: initialChallenge, onClose, onSolve, eventId
           </div>
 
           {/* RIGHT PANEL: SIDEBAR */}
-          <div style={{ width: '280px', backgroundColor: '#181b24', padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div style={{ width: '300px', minWidth: '280px', flexShrink: 0, backgroundColor: '#181b24', padding: '28px', display: 'flex', flexDirection: 'column', gap: '20px', overflowY: 'auto' }}>
             
             {/* 1. Flag submission area */}
             <div style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '20px' }}>
@@ -440,11 +448,24 @@ const ChallengeModal = ({ challenge: initialChallenge, onClose, onSolve, eventId
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '12px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
-                  <span style={{ color: '#64748b' }}>Points Value:</span>
-                  <span style={{ color: '#fff', fontWeight: 'bold' }}>
-                    {challenge.currentPoints || challenge.points} PTS
-                  </span>
-                </div>
+                   <span style={{ color: '#64748b' }}>Points Value:</span>
+                   <span style={{ fontWeight: 'bold' }}>
+                     {(() => {
+                       const base = challenge.currentPoints || challenge.points || 0;
+                       const deduction = revealedHints.reduce((sum, idx) => sum + (challenge.hints?.[idx]?.cost || 0), 0);
+                       const net = Math.max(0, base - deduction);
+                       if (deduction > 0) {
+                         return (
+                           <span>
+                             <span style={{ color: '#64748b', textDecoration: 'line-through', marginRight: '6px', fontWeight: '400' }}>{base}</span>
+                             <span style={{ color: '#10b981' }}>{net} PTS</span>
+                           </span>
+                         );
+                       }
+                       return <span style={{ color: '#fff' }}>{base} PTS</span>;
+                     })()}
+                   </span>
+                 </div>
                 {scoringType === 'dynamic' && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem' }}>
                     <span style={{ color: '#64748b' }}>Decay Base:</span>
@@ -566,24 +587,27 @@ const ChallengeModal = ({ challenge: initialChallenge, onClose, onSolve, eventId
 
       {/* CONFIRM UNLOCK HINT MODAL */}
       {hintToUnlock !== null && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000, backdropFilter: 'blur(3px)' }}>
+        <div 
+          onClick={(e) => e.stopPropagation()}
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000, backdropFilter: 'blur(3px)' }}
+        >
           <div style={{ backgroundColor: '#16181f', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', maxWidth: '380px', width: '90%', textAlign: 'center' }}>
             <div style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: '#ef4444', width: '44px', height: '44px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px auto' }}>
               <AlertTriangle size={22} />
             </div>
             <h3 style={{ color: '#fff', fontSize: '1.05rem', fontWeight: '800', margin: 0 }}>Unlock Hint Confirmation</h3>
             <p style={{ color: '#94a3b8', fontSize: '0.8rem', lineHeight: '1.4', margin: '10px 0 20px 0' }}>
-              Unlocking this hint will deduct <strong>{challenge.hints[hintToUnlock]?.cost} points</strong> from your final reward. Do you wish to continue?
+              Unlocking this hint will deduct <strong style={{ color: '#ef4444' }}>{challenge.hints[hintToUnlock]?.cost} points</strong> from your final reward. Do you wish to continue?
             </p>
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
               <button 
-                onClick={() => setHintToUnlock(null)} 
-                style={{ backgroundColor: 'transparent', border: 'none', color: '#94a3b8', fontWeight: '700', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}
+                onClick={(e) => { e.stopPropagation(); setHintToUnlock(null); }} 
+                style={{ backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', fontWeight: '700', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}
               >
                 Cancel
               </button>
               <button 
-                onClick={confirmUnlockHint} 
+                onClick={(e) => { e.stopPropagation(); confirmUnlockHint(); }} 
                 style={{ backgroundColor: '#ef4444', color: '#fff', border: 'none', fontWeight: '700', padding: '8px 18px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}
               >
                 Unlock Hint
