@@ -784,12 +784,17 @@ export default function ChallengeForm({ challenge, onSave, onCancel, onDelete })
                               setIsUploadingTempFile(true);
                               try {
                                 const url = await uploadImageToCloudinary(file);
-                                setTempFile(prev => ({
-                                  ...prev,
-                                  url,
-                                  name: prev.name || file.name,
-                                  size: prev.size || `${(file.size / (1024 * 1024)).toFixed(2)} MB`
-                                }));
+                                const resolvedName = tempFile.name.trim() || file.name;
+                                const resolvedSize = tempFile.size.trim() || `${(file.size / (1024 * 1024)).toFixed(2)} MB`;
+                                // Auto-add to the files list immediately after upload
+                                updateForm({
+                                  files: [
+                                    ...formData.files,
+                                    { name: resolvedName, url, size: resolvedSize, type: 'file' }
+                                  ]
+                                });
+                                // Reset temp state
+                                setTempFile({ name: '', url: '', size: '', type: 'file' });
                               } catch (err) {
                                 alert('Upload failed: ' + err.message);
                               } finally {
@@ -814,7 +819,7 @@ export default function ChallengeForm({ challenge, onSave, onCancel, onDelete })
                           whiteSpace: 'nowrap'
                         }}
                       >
-                        {isUploadingTempFile ? '...' : <><Upload size={14} /> Upload</>}
+                        {isUploadingTempFile ? 'Uploading...' : <><Upload size={14} /> Upload & Attach</>}
                       </button>
                     )}
                   </div>
