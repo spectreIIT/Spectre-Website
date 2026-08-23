@@ -663,6 +663,9 @@ export default function ChallengeForm({ challenge, onSave, onCancel, onDelete })
                   placeholder="0 = Infinite attempts"
                   style={inputStyle} 
                 />
+                <p style={{ margin: '5px 0 0 0', fontSize: '0.72rem', color: '#64748b' }}>
+                  * 0 means <span style={{ fontWeight: '700', color: '#94a3b8' }}>UNLIMITED</span> attempts
+                </p>
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', marginTop: '24px' }}>
