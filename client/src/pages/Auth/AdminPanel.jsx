@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Users, Target, Calendar, Bell, ShieldAlert, BookOpen, Trash2, FileText, ChevronDown } from 'lucide-react';
+import { Users, Target, Calendar, Bell, ShieldAlert, BookOpen, Trash2, FileText, ChevronDown, Mail, X, Send } from 'lucide-react';
+import API_URL from '../../constants/api';
 import ModuleBuilder from '../../components/modules/ModuleBuilder';
 import ReviewPanel from '../../components/writeups/ReviewPanel';
 import ChallengesManager from '../../components/admin/challenges/ChallengesManager';
@@ -112,6 +113,339 @@ function CustomSelect({ label, value, onChange, options }) {
   );
 }
 
+function RecipientChipInput({ users = [], selectedRecipients = [], onChange }) {
+  const [query, setQuery] = useState('');
+  const [isOpen, setIsOpen] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const inputRef = useRef(null);
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const cleanQuery = query.trim().toLowerCase();
+
+  const filteredUsers = cleanQuery
+    ? users
+        .filter(u => {
+          const alreadySelected = selectedRecipients.some(
+            r => r.email && u.email && r.email.toLowerCase() === u.email.toLowerCase()
+          );
+          if (alreadySelected) return false;
+          const matchUsername = u.username && u.username.toLowerCase().includes(cleanQuery);
+          const matchEmail = u.email && u.email.toLowerCase().includes(cleanQuery);
+          return matchUsername || matchEmail;
+        })
+        .slice(0, 6)
+    : [];
+
+  const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanQuery);
+  const isExactUserMatch = filteredUsers.some(u => u.email?.toLowerCase() === cleanQuery);
+  const showCustomOption =
+    isValidEmail &&
+    !isExactUserMatch &&
+    !selectedRecipients.some(r => r.email?.toLowerCase() === cleanQuery);
+
+  const totalOptionsCount = filteredUsers.length + (showCustomOption ? 1 : 0);
+
+  const handleSelectUser = (userObj) => {
+    const next = [
+      ...selectedRecipients,
+      {
+        id: userObj._id || userObj.id,
+        username: userObj.username,
+        email: userObj.email,
+        avatarUrl: userObj.avatarUrl,
+        role: userObj.role,
+      },
+    ];
+    onChange(next);
+    setQuery('');
+    setIsOpen(false);
+    setHighlightedIndex(0);
+    inputRef.current?.focus();
+  };
+
+  const handleSelectCustomEmail = (customEmail) => {
+    const trimmed = customEmail.trim();
+    if (!trimmed) return;
+    const next = [
+      ...selectedRecipients,
+      {
+        username: trimmed.split('@')[0],
+        email: trimmed,
+        role: 'Custom',
+      },
+    ];
+    onChange(next);
+    setQuery('');
+    setIsOpen(false);
+    setHighlightedIndex(0);
+    inputRef.current?.focus();
+  };
+
+  const handleRemoveRecipient = (emailToRemove) => {
+    const next = selectedRecipients.filter(
+      r => r.email?.toLowerCase() !== emailToRemove.toLowerCase()
+    );
+    onChange(next);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightedIndex(prev => (prev + 1) % (totalOptionsCount || 1));
+      setIsOpen(true);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightedIndex(prev => (prev - 1 + totalOptionsCount) % (totalOptionsCount || 1));
+      setIsOpen(true);
+    } else if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      if (filteredUsers.length > 0 && highlightedIndex < filteredUsers.length) {
+        handleSelectUser(filteredUsers[highlightedIndex]);
+      } else if (showCustomOption) {
+        handleSelectCustomEmail(cleanQuery);
+      } else if (isValidEmail) {
+        handleSelectCustomEmail(cleanQuery);
+      }
+    } else if (e.key === 'Backspace' && !query && selectedRecipients.length > 0) {
+      handleRemoveRecipient(selectedRecipients[selectedRecipients.length - 1].email);
+    } else if (e.key === 'Escape') {
+      setIsOpen(false);
+    }
+  };
+
+  const handlePaste = (e) => {
+    const paste = e.clipboardData.getData('text');
+    if (paste.includes(',') || paste.includes(';') || paste.includes(' ') || paste.includes('\n')) {
+      e.preventDefault();
+      const raw = paste.split(/[,;\s\n]+/).map(s => s.trim().toLowerCase()).filter(Boolean);
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const newRecipients = [...selectedRecipients];
+      raw.forEach(email => {
+        if (emailRegex.test(email) && !newRecipients.some(r => r.email?.toLowerCase() === email)) {
+          const matchedUser = users.find(u => u.email?.toLowerCase() === email);
+          newRecipients.push({
+            id: matchedUser?._id,
+            username: matchedUser?.username || email.split('@')[0],
+            email: email,
+            avatarUrl: matchedUser?.avatarUrl,
+            role: matchedUser?.role || 'Custom',
+          });
+        }
+      });
+      onChange(newRecipients);
+      setQuery('');
+    }
+  };
+
+  return (
+    <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
+      <label style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '6px' }}>
+        Target Recipients ({selectedRecipients.length} selected)
+      </label>
+
+      <div
+        onClick={() => inputRef.current?.focus()}
+        style={{
+          width: '100%',
+          backgroundColor: '#12141a',
+          border: isOpen ? '1px solid #a855f7' : '1px solid rgba(168, 85, 247, 0.4)',
+          borderRadius: '8px',
+          padding: '6px 10px',
+          boxSizing: 'border-box',
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: '8px',
+          alignItems: 'center',
+          minHeight: '48px',
+          cursor: 'text',
+          transition: 'all 0.2s',
+          boxShadow: isOpen ? '0 0 12px rgba(168, 85, 247, 0.25)' : 'none',
+        }}
+      >
+        {/* Chips */}
+        {selectedRecipients.map((rec, idx) => (
+          <div
+            key={idx}
+            style={{
+              backgroundColor: 'rgba(168, 85, 247, 0.18)',
+              border: '1px solid rgba(168, 85, 247, 0.45)',
+              borderRadius: '20px',
+              padding: '3px 8px 3px 4px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              maxWidth: '260px',
+            }}
+          >
+            {rec.avatarUrl ? (
+              <img src={rec.avatarUrl} alt={rec.username} style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' }} />
+            ) : (
+              <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: 'linear-gradient(135deg, #a855f7, #ec4899)', color: '#fff', fontSize: '0.7rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {rec.username ? rec.username.charAt(0).toUpperCase() : rec.email.charAt(0).toUpperCase()}
+              </div>
+            )}
+            <span style={{ color: '#fff', fontSize: '0.82rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={`${rec.username} <${rec.email}>`}>
+              {rec.username || rec.email}
+            </span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleRemoveRecipient(rec.email);
+              }}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: '#94a3b8',
+                cursor: 'pointer',
+                padding: '2px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: '50%',
+              }}
+              onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
+              onMouseLeave={e => e.currentTarget.style.color = '#94a3b8'}
+            >
+              <X size={13} />
+            </button>
+          </div>
+        ))}
+
+        {/* Inline Search Input */}
+        <input
+          ref={inputRef}
+          type="text"
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setIsOpen(true);
+            setHighlightedIndex(0);
+          }}
+          onFocus={() => {
+            if (cleanQuery) setIsOpen(true);
+          }}
+          onKeyDown={handleKeyDown}
+          onPaste={handlePaste}
+          placeholder={selectedRecipients.length === 0 ? "Type username or email to search..." : "Add another recipient..."}
+          style={{
+            flex: 1,
+            minWidth: '160px',
+            backgroundColor: 'transparent',
+            border: 'none',
+            outline: 'none',
+            color: '#fff',
+            fontSize: '0.9rem',
+            padding: '4px',
+          }}
+        />
+      </div>
+
+      <span style={{ color: '#64748b', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>
+        Start typing to pick registered users from autocomplete or enter custom email addresses.
+      </span>
+
+      {/* Autocomplete Dropdown */}
+      {isOpen && cleanQuery && totalOptionsCount > 0 && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 'calc(100% - 14px)',
+            left: 0,
+            right: 0,
+            backgroundColor: '#161822',
+            border: '1px solid rgba(168, 85, 247, 0.45)',
+            borderRadius: '10px',
+            boxShadow: '0 14px 40px rgba(0,0,0,0.85)',
+            zIndex: 1000,
+            overflow: 'hidden',
+            maxHeight: '260px',
+            overflowY: 'auto',
+          }}
+        >
+          {filteredUsers.map((u, idx) => {
+            const isHighlighted = idx === highlightedIndex;
+            return (
+              <div
+                key={u._id || idx}
+                onClick={() => handleSelectUser(u)}
+                onMouseEnter={() => setHighlightedIndex(idx)}
+                style={{
+                  padding: '10px 14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '10px',
+                  cursor: 'pointer',
+                  backgroundColor: isHighlighted ? 'rgba(168, 85, 247, 0.2)' : 'transparent',
+                  borderBottom: '1px solid rgba(255,255,255,0.04)',
+                  transition: 'background-color 0.15s',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
+                  {u.avatarUrl ? (
+                    <img src={u.avatarUrl} alt={u.username} style={{ width: '30px', height: '30px', borderRadius: '50%', objectFit: 'cover' }} />
+                  ) : (
+                    <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)', color: '#fff', fontSize: '0.8rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {u.username ? u.username.charAt(0).toUpperCase() : '?'}
+                    </div>
+                  )}
+                  <div style={{ overflow: 'hidden' }}>
+                    <div style={{ color: '#fff', fontWeight: 700, fontSize: '0.88rem' }}>{u.username}</div>
+                    <div style={{ color: '#94a3b8', fontSize: '0.78rem', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.email}</div>
+                  </div>
+                </div>
+                <span
+                  style={{
+                    fontSize: '0.7rem',
+                    fontWeight: 700,
+                    padding: '2px 8px',
+                    borderRadius: '6px',
+                    backgroundColor: u.role === 'Admin' ? 'rgba(239,68,68,0.15)' : (u.role === 'Supervisor' ? 'rgba(245,158,11,0.15)' : 'rgba(16,185,129,0.15)'),
+                    color: u.role === 'Admin' ? '#ef4444' : (u.role === 'Supervisor' ? '#f59e0b' : '#10b981'),
+                  }}
+                >
+                  {u.role || 'Member'}
+                </span>
+              </div>
+            );
+          })}
+
+          {showCustomOption && (
+            <div
+              onClick={() => handleSelectCustomEmail(cleanQuery)}
+              onMouseEnter={() => setHighlightedIndex(filteredUsers.length)}
+              style={{
+                padding: '10px 14px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                cursor: 'pointer',
+                backgroundColor: highlightedIndex === filteredUsers.length ? 'rgba(56, 189, 248, 0.2)' : 'transparent',
+                color: '#38bdf8',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+              }}
+            >
+              <Mail size={16} /> Add "{cleanQuery}" as custom recipient
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AdminPanel() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -127,10 +461,13 @@ function AdminPanel() {
   const [notifMessage, setNotifMessage] = useState('');
   const [notifTarget, setNotifTarget] = useState('all');
   const [notifEmail, setNotifEmail] = useState('');
+  const [selectedRecipients, setSelectedRecipients] = useState([]);
   const [notifType, setNotifType] = useState('info');
   const [isPermanent, setIsPermanent] = useState(false);
   const [notifSuccess, setNotifSuccess] = useState('');
   const [notifError, setNotifError] = useState('');
+  const [sendingMail, setSendingMail] = useState(false);
+  const [isMailConfirmModalOpen, setIsMailConfirmModalOpen] = useState(false);
 
   // Notifications history state
   const [notifications, setNotifications] = useState([]);
@@ -244,6 +581,7 @@ function AdminPanel() {
       fetchWriteups();
     } else if (activeTab === 'notifications') {
       fetchNotifications();
+      if (users.length === 0) fetchUsers();
     }
   }, [activeTab]);
 
@@ -277,12 +615,23 @@ function AdminPanel() {
     }
   };
 
+  const handleRecipientsChange = (newRecipients) => {
+    setSelectedRecipients(newRecipients);
+    setNotifEmail(newRecipients.map(r => r.email).join(', '));
+  };
+
   const handleSendNotification = async (e) => {
     e.preventDefault();
     setNotifSuccess('');
     setNotifError('');
+
+    if (notifTarget === 'specific' && (!notifEmail || !notifEmail.trim())) {
+      setNotifError('Please select at least one recipient user or enter an email address.');
+      return;
+    }
+
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || "http://localhost:5000")}/api/admin/notifications`, {
+      const res = await fetch(`${API_URL}/api/admin/notifications`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -303,6 +652,7 @@ function AdminPanel() {
         setNotifMessage('');
         setNotifTarget('all');
         setNotifEmail('');
+        setSelectedRecipients([]);
         setNotifType('info');
         setIsPermanent(false);
         setNotifSuccess('Notification broadcast successfully!');
@@ -314,6 +664,61 @@ function AdminPanel() {
     } catch (err) {
       console.error(err);
       setNotifError('Server error broadcasting notification');
+    }
+  };
+
+  const handleOpenMailConfirm = (e) => {
+    if (e) e.preventDefault();
+    setNotifSuccess('');
+    setNotifError('');
+
+    if (!notifTitle.trim()) {
+      setNotifError('Please enter a notification title / subject before sending email.');
+      return;
+    }
+    if (!notifMessage.trim()) {
+      setNotifError('Please enter a notification message body before sending email.');
+      return;
+    }
+    if (notifTarget === 'specific' && (!notifEmail || !notifEmail.trim())) {
+      setNotifError('Please select at least one recipient user or enter an email address.');
+      return;
+    }
+
+    setIsMailConfirmModalOpen(true);
+  };
+
+  const handleSendMail = async () => {
+    setSendingMail(true);
+    setNotifSuccess('');
+    setNotifError('');
+    try {
+      const res = await fetch(`${API_URL}/api/admin/send-mail`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          title: notifTitle,
+          message: notifMessage,
+          recipients: notifTarget,
+          targetEmail: notifTarget === 'specific' ? notifEmail : undefined,
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setIsMailConfirmModalOpen(false);
+        setNotifSuccess(data.message || 'Email broadcast sent successfully!');
+        setTimeout(() => setNotifSuccess(''), 6000);
+      } else {
+        setNotifError(data.message || 'Failed to send email broadcast.');
+      }
+    } catch (err) {
+      console.error(err);
+      setNotifError('Network or server error sending email broadcast.');
+    } finally {
+      setSendingMail(false);
     }
   };
 
@@ -478,18 +883,11 @@ function AdminPanel() {
                 </div>
 
                 {notifTarget === 'specific' && (
-                  <div>
-                    <label style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '6px' }}>Target User Email(s)</label>
-                    <input
-                      type="text"
-                      placeholder="user@example.com, another@example.com"
-                      value={notifEmail}
-                      onChange={e => setNotifEmail(e.target.value)}
-                      style={{ width: '100%', backgroundColor: '#12141a', color: '#fff', border: '1px solid rgba(168, 85, 247, 0.4)', padding: '12px 16px', borderRadius: '8px', boxSizing: 'border-box', fontSize: '0.95rem' }}
-                      required
-                    />
-                    <span style={{ color: '#64748b', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>Separate multiple email addresses with commas.</span>
-                  </div>
+                  <RecipientChipInput
+                    users={users}
+                    selectedRecipients={selectedRecipients}
+                    onChange={handleRecipientsChange}
+                  />
                 )}
 
                 {/* Permanent / Temporary Toggle */}
@@ -527,9 +925,60 @@ function AdminPanel() {
                   </div>
                 </div>
 
-                <button type="submit" style={{ backgroundColor: '#ec4899', color: '#fff', border: 'none', padding: '13px', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '0.95rem', transition: 'opacity 0.2s' }} onMouseEnter={e => e.currentTarget.style.opacity = '0.9'} onMouseLeave={e => e.currentTarget.style.opacity = '1'}>
-                  Broadcast Notification
-                </button>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginTop: '4px' }}>
+                  <button 
+                    type="submit" 
+                    style={{ 
+                      backgroundColor: '#ec4899', 
+                      color: '#fff', 
+                      border: 'none', 
+                      padding: '13px', 
+                      borderRadius: '8px', 
+                      fontWeight: '700', 
+                      cursor: 'pointer', 
+                      fontSize: '0.92rem', 
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      transition: 'opacity 0.2s' 
+                    }} 
+                    onMouseEnter={e => e.currentTarget.style.opacity = '0.9'} 
+                    onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                  >
+                    <Bell size={16} /> Broadcast Notification
+                  </button>
+
+                  <button 
+                    type="button" 
+                    onClick={handleOpenMailConfirm}
+                    style={{ 
+                      backgroundColor: 'rgba(56, 189, 248, 0.12)', 
+                      border: '1px solid rgba(56, 189, 248, 0.35)', 
+                      color: '#38bdf8', 
+                      padding: '13px', 
+                      borderRadius: '8px', 
+                      fontWeight: '700', 
+                      cursor: 'pointer', 
+                      fontSize: '0.92rem', 
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      transition: 'all 0.2s' 
+                    }} 
+                    onMouseEnter={e => {
+                      e.currentTarget.style.backgroundColor = 'rgba(56, 189, 248, 0.22)';
+                      e.currentTarget.style.transform = 'translateY(-1px)';
+                    }} 
+                    onMouseLeave={e => {
+                      e.currentTarget.style.backgroundColor = 'rgba(56, 189, 248, 0.12)';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                    }}
+                  >
+                    <Mail size={16} /> Send Mail
+                  </button>
+                </div>
               </form>
             </div>
 
@@ -695,6 +1144,135 @@ function AdminPanel() {
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
               <button onClick={() => { setIsDeleteModalOpen(false); setPendingDeleteId(null); }} style={{ background: 'transparent', color: '#94a3b8', border: 'none', cursor: 'pointer', fontWeight: '600' }}>Cancel</button>
               <button onClick={executeDeleteNotification} style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Send Mail Confirmation Modal */}
+      {isMailConfirmModalOpen && (
+        <div 
+          onClick={() => !sendingMail && setIsMailConfirmModalOpen(false)}
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(5px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 10000, padding: '20px'
+          }}
+        >
+          <div 
+            onClick={e => e.stopPropagation()}
+            style={{
+              backgroundColor: '#0d0f14',
+              border: '1px solid rgba(56, 189, 248, 0.3)',
+              borderRadius: '16px',
+              maxWidth: '540px',
+              width: '100%',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.8)',
+              overflow: 'hidden'
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{ padding: '20px 24px', background: '#12141a', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ background: 'rgba(56, 189, 248, 0.15)', padding: '8px', borderRadius: '8px', display: 'flex' }}>
+                  <Mail size={20} color="#38bdf8" />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, color: '#fff', fontSize: '1.1rem' }}>Confirm Email Broadcast</h3>
+                  <p style={{ margin: '2px 0 0 0', color: '#64748b', fontSize: '0.78rem' }}>
+                    Dual-service delivery (Resend with Brevo automatic failover)
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => !sendingMail && setIsMailConfirmModalOpen(false)}
+                disabled={sendingMail}
+                style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '6px', borderRadius: '6px' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ background: '#12141a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div>
+                  <span style={{ color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 700 }}>Recipients</span>
+                  <div style={{ color: '#fff', fontWeight: 600, fontSize: '0.9rem', marginTop: '2px' }}>
+                    {notifTarget === 'all' && 'All Registered Users'}
+                    {notifTarget === 'members' && 'Members Only'}
+                    {notifTarget === 'supervisors' && 'Supervisors & Admins'}
+                    {notifTarget === 'specific' && (
+                      selectedRecipients.length > 0 ? (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '4px' }}>
+                          {selectedRecipients.map((r, i) => (
+                            <span key={i} style={{ background: 'rgba(168, 85, 247, 0.2)', border: '1px solid rgba(168,85,247,0.4)', color: '#c084fc', padding: '2px 8px', borderRadius: '12px', fontSize: '0.78rem' }}>
+                              {r.username || r.email}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (notifEmail || 'Specific Email(s)')
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <span style={{ color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 700 }}>Subject</span>
+                  <div style={{ color: '#38bdf8', fontWeight: 600, fontSize: '0.95rem', marginTop: '2px' }}>
+                    {notifTitle}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <span style={{ color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 700, display: 'block', marginBottom: '6px' }}>Message Body Preview</span>
+                <div style={{ background: '#12141a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', padding: '14px 16px', color: '#cbd5e1', fontSize: '0.85rem', maxHeight: '160px', overflowY: 'auto', whiteSpace: 'pre-wrap', lineHeight: 1.5, fontFamily: "'JetBrains Mono', monospace" }}>
+                  {notifMessage}
+                </div>
+              </div>
+
+              {notifError && (
+                <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444', padding: '10px 14px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 600 }}>
+                  ❌ {notifError}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{ padding: '16px 24px', background: '#12141a', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <button
+                onClick={() => setIsMailConfirmModalOpen(false)}
+                disabled={sendingMail}
+                style={{
+                  background: 'transparent', border: '1px solid rgba(255,255,255,0.1)',
+                  color: '#94a3b8', padding: '10px 18px', borderRadius: '8px',
+                  fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSendMail}
+                disabled={sendingMail}
+                style={{
+                  background: '#38bdf8', color: '#090d16', border: 'none',
+                  padding: '10px 22px', borderRadius: '8px', fontSize: '0.85rem',
+                  fontWeight: 700, cursor: sendingMail ? 'not-allowed' : 'pointer',
+                  display: 'flex', alignItems: 'center', gap: '8px',
+                  opacity: sendingMail ? 0.7 : 1
+                }}
+              >
+                {sendingMail ? (
+                  <>
+                    <span className="event-spinner" style={{ width: '14px', height: '14px', borderWidth: '2px' }}></span>
+                    Sending Emails...
+                  </>
+                ) : (
+                  <>
+                    <Send size={15} /> Send Broadcast
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>

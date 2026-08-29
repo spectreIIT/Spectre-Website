@@ -1,3 +1,7 @@
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 .events-hub-container {
   padding: 40px;
   max-width: 1200px;

@@ -1,4 +1,5 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import User from '../models/User.js';
 import Notification from '../models/Notification.js';
@@ -6,9 +7,12 @@ import Module from '../models/Module.js';
 import ModuleProgress from '../models/ModuleProgress.js';
 import Writeup from '../models/Writeup.js';
 import Challenge from '../models/Challenge.js';
+import Submission from '../models/Submission.js';
 import EventRegistration from '../models/EventRegistration.js';
 import Team from '../models/Team.js';
 import { protect, isAdmin, isSupervisor } from '../middleware/authMiddleware.js';
+import { recalculateUserScore, recalculateEventScore } from '../utils/scoreHelper.js';
+import sendEmail from '../utils/sendEmail.js';
 
 const router = express.Router();
 
@@ -26,12 +30,12 @@ router.get('/users', protect, isSupervisor, async (req, res) => {
     const enrichedUsers = users.map(user => {
       // Filter orphaned and unique solves
       const validSolves = (user.solves || []).filter(s => s.challengeId);
-      const uniqueSolves = new Set(validSolves.map(s => s.challengeId.toString()));
+      const uniqueSolves = new Set(validSolves.map(s => (s.challengeId?._id || s.challengeId).toString()));
       const solvesCount = uniqueSolves.size;
       
-      // Filter unique modules
+      // Filter unique completed modules
       const userProgress = allProgress.filter(p => p.user?.toString() === user._id.toString() && p.moduleId);
-      const uniqueModules = new Set(userProgress.map(p => p.moduleId.toString()));
+      const uniqueModules = new Set(userProgress.map(p => (p.moduleId?._id || p.moduleId).toString()));
       const modulesCount = uniqueModules.size;
 
       const writeupsCount = allWriteups.filter(w => w.author?.toString() === user._id.toString()).length;
@@ -56,36 +60,152 @@ router.get('/users', protect, isSupervisor, async (req, res) => {
 // @access  Private/Supervisor
 router.get('/users/:id', protect, isSupervisor, async (req, res) => {
   try {
+    // Ensure user score is unified and accurate
+    await recalculateUserScore(req.params.id);
+
     const user = await User.findById(req.params.id)
       .select('-password')
-      .populate('solves.challengeId', 'title category points difficulty')
+      .populate('solves.challengeId', 'title category points difficulty eventId')
       .lean();
 
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Filter orphaned and duplicate solves
+    // Filter orphaned and duplicate solves by both challenge ID and normalized title
+    // (catches event vs global clones of the same challenge, and duplicate submissions)
     const validSolves = (user.solves || []).filter(s => s.challengeId);
     const uniqueSolvesMap = new Map();
+    
     validSolves.forEach(s => {
-      const id = s.challengeId._id ? s.challengeId._id.toString() : s.challengeId.toString();
-      uniqueSolvesMap.set(id, s);
+      const chalDoc = s.challengeId;
+      const id = chalDoc._id ? chalDoc._id.toString() : chalDoc.toString();
+      // Normalize title as primary key so cloned event/global challenges merge into one
+      const titleKey = chalDoc.title 
+        ? chalDoc.title.toLowerCase().trim() 
+        : id;
+
+      const awardedPoints = s.awardedPointsAtSolveTime !== undefined 
+        ? s.awardedPointsAtSolveTime 
+        : (chalDoc?.points || 0);
+
+      const solveObj = {
+        ...s,
+        awardedPoints,
+        solvedAt: s.solvedAt || s.timestamp || new Date()
+      };
+
+      if (!uniqueSolvesMap.has(titleKey)) {
+        uniqueSolvesMap.set(titleKey, solveObj);
+      } else {
+        // If duplicate entry exists, keep the one with higher awarded points or earlier solve time
+        const existing = uniqueSolvesMap.get(titleKey);
+        if ((awardedPoints > (existing.awardedPoints || 0)) || 
+            (new Date(solveObj.solvedAt) < new Date(existing.solvedAt))) {
+          uniqueSolvesMap.set(titleKey, solveObj);
+        }
+      }
     });
+
     const solves = Array.from(uniqueSolvesMap.values());
 
-    // Fetch completed modules for this user
-    const moduleProgress = await ModuleProgress.find({ user: user._id, isCompleted: true })
-      .populate('moduleId', 'title description points icon color')
-      .lean();
+    // Fetch completed modules for this user with full structure to compute exact earned points
+    const moduleProgressList = await ModuleProgress.find({ 
+      user: user._id, 
+      $or: [{ isCompleted: true }, { isCompletedDuringEvent: true }, { legacyEventBonus: { $gt: 0 } }] 
+    }).lean();
       
-    // Filter orphaned and duplicate modules
-    const validModules = moduleProgress.map(mp => mp.moduleId).filter(Boolean);
+    const progressModuleIds = moduleProgressList.map(p => p.moduleId);
+    const dbModuleIds = progressModuleIds.filter(id => mongoose.Types.ObjectId.isValid(id));
+    const dbModules = await Module.find({ _id: { $in: dbModuleIds } }).lean();
+    const dbModulesMap = new Map(dbModules.map(m => [m._id.toString(), m]));
+
+    const staticMetadata = {
+      '1': { title: 'How HTTP Works', description: 'Understand HTTP requests, responses, status codes, and cookies.', icon: '🌐', color: '#3b82f6', points: 100 },
+      '2': { title: 'Cryptography & Encoding', description: 'Learn encoding, hashing, Caesar & Vigenère ciphers.', icon: '🔐', color: '#b026ff', points: 100 },
+      '3': { title: 'Network Scanning & Recon', description: 'Network exploration and host discovery.', icon: '📡', color: '#10b981', points: 100 },
+      '4': { title: 'Web Security & OWASP Top 10', description: 'Web vulnerability exploitation and defense.', icon: '🛡️', color: '#f59e0b', points: 100 },
+      '5': { title: 'Binary Exploitation 101', description: 'Introduction to binary analysis and exploits.', icon: '⚙️', color: '#ef4444', points: 100 },
+      'model-1': { title: 'Intro to Databases', description: 'Database management systems and SQL fundamentals.', icon: '🗄️', color: '#00f0ff', points: 100 },
+      'design-showcase': { title: 'SPECTRE Design Showcase', description: 'Overview of LMS learning interface modules.', icon: '🎨', color: '#a855f7', points: 100 }
+    };
+
     const uniqueModulesMap = new Map();
-    validModules.forEach(m => {
-      const id = m._id ? m._id.toString() : m.toString();
-      uniqueModulesMap.set(id, m);
-    });
+
+    for (const prog of moduleProgressList) {
+      const modIdStr = (prog.moduleId || '').toString();
+      if (!modIdStr) continue;
+
+      if (uniqueModulesMap.has(modIdStr)) continue;
+
+      const rawMod = dbModulesMap.get(modIdStr);
+      let earnedPoints = 0;
+      let title = 'Module';
+      let description = '';
+      let icon = '';
+      let color = '';
+
+      if (rawMod) {
+        title = rawMod.title || 'Module';
+        description = rawMod.description || '';
+        icon = rawMod.icon || '';
+        color = rawMod.color || '';
+
+        let totalDeductions = 0;
+        const revealedHints = new Set(prog.revealedHints || []);
+        (rawMod.pages || []).forEach(page => {
+          (page.hints || []).forEach(hint => {
+            if (revealedHints.has(hint.id)) totalDeductions += (hint.cost || 0);
+          });
+        });
+        if (rawMod.challenge?.hints) {
+          rawMod.challenge.hints.forEach(hint => {
+            if (revealedHints.has(hint.id)) totalDeductions += (hint.cost || 0);
+          });
+        }
+
+        if (rawMod.pointsMode === 'page') {
+          let pagePoints = 0;
+          const completedPages = new Set(prog.completedSections || []);
+          const completedQuestions = new Set(prog.completedQuestions || []);
+          (rawMod.pages || []).forEach(page => {
+            if (completedPages.has(page.id)) pagePoints += (page.points || 0);
+            (page.questions || []).forEach(q => {
+              if (completedQuestions.has(q.id)) pagePoints += (q.points || 0);
+            });
+          });
+          earnedPoints = Math.max(0, pagePoints - totalDeductions);
+        } else {
+          earnedPoints = Math.max(0, (rawMod.points || 100) - totalDeductions);
+        }
+
+        if (prog.legacyEventBonus) {
+          earnedPoints += prog.legacyEventBonus;
+        }
+      } else if (staticMetadata[modIdStr]) {
+        const meta = staticMetadata[modIdStr];
+        title = meta.title;
+        description = meta.description;
+        icon = meta.icon;
+        color = meta.color;
+        earnedPoints = meta.points || 100;
+      } else {
+        title = `Core Module #${modIdStr}`;
+        earnedPoints = 100;
+      }
+
+      uniqueModulesMap.set(modIdStr, {
+        _id: modIdStr,
+        moduleId: modIdStr,
+        title,
+        description,
+        icon,
+        color,
+        earnedPoints,
+        completedAt: prog.lastActivityAt || prog.updatedAt || prog.createdAt || new Date()
+      });
+    }
+
     const modules = Array.from(uniqueModulesMap.values());
 
     // Fetch writeups for this user
@@ -222,6 +342,103 @@ router.post('/notifications', protect, isAdmin, async (req, res) => {
   } catch (error) {
     console.error('Error broadcasting notification:', error);
     res.status(500).json({ message: 'Server error broadcasting notification' });
+  }
+});
+
+// @route   POST /api/admin/send-mail
+// @desc    Send email notification broadcast to users (with Resend -> Brevo failover)
+// @access  Private/Admin
+router.post('/send-mail', protect, isAdmin, async (req, res) => {
+  try {
+    const { title, message, recipients, targetEmail } = req.body;
+
+    if (!title || !title.trim()) {
+      return res.status(400).json({ message: 'Email Subject / Title is required.' });
+    }
+    if (!message || !message.trim()) {
+      return res.status(400).json({ message: 'Email Message body is required.' });
+    }
+
+    let targetEmailList = [];
+
+    if (recipients === 'specific') {
+      if (!targetEmail || !targetEmail.trim()) {
+        return res.status(400).json({ message: 'Target email address(es) are required for specific recipients.' });
+      }
+      const rawEmails = targetEmail.split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const validEmails = rawEmails.filter(e => emailRegex.test(e));
+
+      if (validEmails.length === 0) {
+        return res.status(400).json({ message: 'No valid recipient email address(es) provided.' });
+      }
+      targetEmailList = Array.from(new Set(validEmails));
+    } else {
+      let query = { email: { $exists: true, $ne: '' } };
+      if (recipients === 'members') {
+        query.role = 'Member';
+      } else if (recipients === 'supervisors') {
+        query.role = { $in: ['Supervisor', 'Admin'] };
+      }
+      // Query registered users with valid emails
+      const users = await User.find(query).select('email username').lean();
+      targetEmailList = Array.from(new Set(users.map(u => u.email).filter(Boolean)));
+    }
+
+    if (targetEmailList.length === 0) {
+      return res.status(404).json({ message: 'No matching user email addresses found.' });
+    }
+
+    const sentEmails = [];
+    const failedEmails = [];
+    const servicesUsed = new Set();
+
+    for (const email of targetEmailList) {
+      try {
+        const result = await sendEmail({
+          email,
+          subject: title.trim(),
+          title: title.trim(),
+          message: message.trim()
+        });
+        sentEmails.push(email);
+        if (result?.service) servicesUsed.add(result.service);
+      } catch (err) {
+        console.error(`Failed to send email to ${email}:`, err.message);
+        failedEmails.push({ email, error: err.message });
+      }
+    }
+
+    if (sentEmails.length === 0) {
+      return res.status(500).json({
+        message: `Failed to deliver emails to any recipient. Reason: ${failedEmails[0]?.error || 'Mail service connection error'}`,
+        sentCount: 0,
+        failedCount: failedEmails.length,
+        failedEmails
+      });
+    }
+
+    const serviceSummary = servicesUsed.size > 0 ? Array.from(servicesUsed).join(' & ') : 'Email Service';
+
+    if (failedEmails.length > 0) {
+      return res.status(200).json({
+        message: `Sent to ${sentEmails.length} recipient(s) via ${serviceSummary}, but failed for ${failedEmails.length} recipient(s).`,
+        sentCount: sentEmails.length,
+        failedCount: failedEmails.length,
+        failedEmails,
+        servicesUsed: Array.from(servicesUsed)
+      });
+    }
+
+    res.status(200).json({
+      message: `Email broadcast sent successfully to ${sentEmails.length} recipient(s) via ${serviceSummary}!`,
+      sentCount: sentEmails.length,
+      failedCount: 0,
+      servicesUsed: Array.from(servicesUsed)
+    });
+  } catch (error) {
+    console.error('Error sending mail broadcast:', error);
+    res.status(500).json({ message: `Server error sending email broadcast: ${error.message}` });
   }
 });
 
@@ -386,6 +603,141 @@ router.delete('/notifications/:id', protect, isAdmin, async (req, res) => {
     res.json({ message: 'Notification deleted successfully' });
   } catch (err) {
     res.status(500).json({ message: 'Server error deleting notification' });
+  }
+});
+
+// ── POST /api/admin/deduplicate-solves ──────────────────────────────────
+// @desc  Scan all users for duplicate challenge solves (caused by a race condition
+//        bug), deduplicate them, fix Challenge.solves counts, and recalculate scores.
+//        Safe to run multiple times — idempotent.
+// @access Private (Admin only)
+router.post('/deduplicate-solves', protect, isAdmin, async (req, res) => {
+  try {
+    const report = {
+      usersScanned: 0,
+      usersAffected: 0,
+      duplicatesRemoved: 0,
+      submissionDuplicatesRemoved: 0,
+      challengeSolvesFixed: [],
+      scoreChanges: []
+    };
+
+    const users = await User.find({}).populate('solves.challengeId', 'title points');
+    report.usersScanned = users.length;
+
+    // Track which challenge IDs need their .solves count fixed
+    const challengesToFix = new Set();
+
+    for (const user of users) {
+      if (!user.solves || user.solves.length === 0) continue;
+
+      // Group solves by normalized title (or ID), keep the best/earliest for each
+      const seenChallenges = new Map();
+      const duplicateEntries = [];
+
+      for (const solve of user.solves) {
+        if (!solve.challengeId) continue;
+        const chalDoc = solve.challengeId;
+        const rawId = chalDoc._id ? chalDoc._id.toString() : chalDoc.toString();
+        const key = chalDoc.title ? chalDoc.title.toLowerCase().trim() : rawId;
+        
+        const existing = seenChallenges.get(key);
+        if (!existing) {
+          seenChallenges.set(key, { ...solve.toObject ? solve.toObject() : solve, rawId });
+        } else {
+          const newPts = solve.awardedPointsAtSolveTime || chalDoc.points || 0;
+          const oldPts = existing.awardedPointsAtSolveTime || (existing.challengeId?.points) || 0;
+          
+          if (newPts > oldPts || (newPts === oldPts && new Date(solve.solvedAt) < new Date(existing.solvedAt))) {
+            duplicateEntries.push(existing._id);
+            seenChallenges.set(key, { ...solve.toObject ? solve.toObject() : solve, rawId });
+          } else {
+            duplicateEntries.push(solve._id);
+          }
+          challengesToFix.add(rawId);
+          challengesToFix.add(existing.rawId);
+        }
+      }
+
+      if (duplicateEntries.length > 0) {
+        report.usersAffected++;
+        report.duplicatesRemoved += duplicateEntries.length;
+
+        const oldScore = user.score;
+
+        // Remove duplicate solve entries from user.solves
+        await User.findByIdAndUpdate(user._id, {
+          $pull: { solves: { _id: { $in: duplicateEntries } } }
+        });
+
+        // Also remove duplicate Submission records (keep earliest correct submission per challenge)
+        const uniqueChallengeIds = [...seenChallenges.keys()];
+        for (const chalId of uniqueChallengeIds) {
+          // Find all correct submissions for this user+challenge, sorted by timestamp
+          const subs = await Submission.find({
+            user: user._id,
+            challenge: chalId,
+            isCorrect: true
+          }).sort({ timestamp: 1 });
+
+          if (subs.length > 1) {
+            // Keep first, delete the rest
+            const toDelete = subs.slice(1).map(s => s._id);
+            await Submission.deleteMany({ _id: { $in: toDelete } });
+            report.submissionDuplicatesRemoved += toDelete.length;
+          }
+        }
+
+        // Recalculate global user score after dedup
+        const newScore = await recalculateUserScore(user._id);
+        if (newScore !== oldScore) {
+          report.scoreChanges.push({
+            userId: user._id,
+            username: user.username,
+            oldScore,
+            newScore,
+            delta: newScore - oldScore
+          });
+        }
+
+        // Also recalculate all event scores for events this user is registered for
+        const userRegistrations = await EventRegistration.find({ userId: user._id });
+        for (const reg of userRegistrations) {
+          if (reg.eventId) {
+            await recalculateEventScore(reg.eventId, user._id);
+          }
+        }
+      }
+    }
+
+    // Fix Challenge.solves counts to reflect unique solvers
+    for (const chalId of challengesToFix) {
+      // Count unique users who have this challenge in their solves
+      const uniqueSolverCount = await User.countDocuments({
+        'solves.challengeId': chalId
+      });
+      const updated = await Challenge.findByIdAndUpdate(
+        chalId,
+        { $set: { solves: uniqueSolverCount } },
+        { new: true }
+      );
+      if (updated) {
+        report.challengeSolvesFixed.push({
+          challengeId: chalId,
+          title: updated.title,
+          newSolvesCount: uniqueSolverCount
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Deduplication complete. ${report.duplicatesRemoved} duplicate solve(s) removed across ${report.usersAffected} user(s).`,
+      report
+    });
+  } catch (err) {
+    console.error('Error deduplicating solves:', err);
+    res.status(500).json({ message: 'Server error during deduplication', error: err.message });
   }
 });
 

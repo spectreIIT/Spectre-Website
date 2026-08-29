@@ -40,7 +40,18 @@ export const recalculateUserScore = async (userId) => {
       user.solves = validSolvesArray;
     }
     
-    const challengeScore = globalSolves.reduce((total, solve) => {
+    // Deduplicate solves by unique challengeId to ensure each challenge only counts once
+    const seenChallengeIds = new Set();
+    const uniqueGlobalSolves = [];
+    for (const solve of globalSolves) {
+      const cId = (solve.challengeId._id || solve.challengeId).toString();
+      if (!seenChallengeIds.has(cId)) {
+        seenChallengeIds.add(cId);
+        uniqueGlobalSolves.push(solve);
+      }
+    }
+    
+    const challengeScore = uniqueGlobalSolves.reduce((total, solve) => {
       const pts = solve.awardedPointsAtSolveTime !== undefined 
         ? solve.awardedPointsAtSolveTime 
         : (solve.challengeId.points || 0);
@@ -213,7 +224,7 @@ export const recalculateEventScore = async (eventId, userId) => {
     const event = await Event.findById(eventId);
     if (!user || !event) return 0;
 
-    // 1. Recalculate event challenge score
+    // 1. Recalculate event challenge score with deduplication
     const eventSolves = user.solves.filter(solve => 
       solve.challengeId && 
       typeof solve.challengeId === 'object' && 
@@ -221,7 +232,22 @@ export const recalculateEventScore = async (eventId, userId) => {
       solve.challengeId.eventId.toString() === eventId.toString()
     );
     
-    const challengeScore = eventSolves.reduce((total, solve) => total + (solve.challengeId.points || 0), 0);
+    const seenEventChallengeIds = new Set();
+    const uniqueEventSolves = [];
+    for (const solve of eventSolves) {
+      const cId = (solve.challengeId._id || solve.challengeId).toString();
+      if (!seenEventChallengeIds.has(cId)) {
+        seenEventChallengeIds.add(cId);
+        uniqueEventSolves.push(solve);
+      }
+    }
+    
+    const challengeScore = uniqueEventSolves.reduce((total, solve) => {
+      const pts = solve.awardedPointsAtSolveTime !== undefined
+        ? solve.awardedPointsAtSolveTime
+        : (solve.challengeId.points || 0);
+      return total + pts;
+    }, 0);
 
     // 2. Recalculate event module score
     const allProgress = await ModuleProgress.find({ user: userId });

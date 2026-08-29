@@ -60,32 +60,33 @@ const ProgressionGraph = ({ data }) => {
     const allEvents = [];
     activeUsers.forEach(user => {
       const userContributions = [];
-
       let calculatedPoints = 0;
 
       // Build progression purely from verifiable track records (solves and modules)
       (user.solves || []).forEach(solve => {
-        const points = solve.challengeId?.points || 0;
-        const time = new Date(solve.timestamp || solve.solvedAt || 0).getTime();
-        if (!isNaN(time) && points > 0) {
+        const points = solve.awardedPointsAtSolveTime !== undefined 
+          ? solve.awardedPointsAtSolveTime 
+          : (solve.awardedPoints !== undefined ? solve.awardedPoints : (solve.challengeId?.points || 0));
+        const time = new Date(solve.solvedAt || solve.timestamp || 0).getTime();
+        if (!isNaN(time) && time > 0 && points > 0) {
           userContributions.push({ time, points });
           calculatedPoints += points;
         }
       });
 
       (user.completedModules || []).forEach(mod => {
-        const points = mod.points || 100;
-        const time = new Date(mod.timestamp || 0).getTime();
-        if (!isNaN(time) && points > 0) {
+        const points = mod.earnedPoints || mod.points || 100;
+        const time = new Date(mod.completedAt || mod.timestamp || 0).getTime();
+        if (!isNaN(time) && time > 0 && points > 0) {
           userContributions.push({ time, points });
           calculatedPoints += points;
         }
       });
 
       (user.writeups || []).forEach(w => {
-        const points = w.points || 0;
-        const time = new Date(w.timestamp || 0).getTime();
-        if (!isNaN(time) && points > 0) {
+        const points = w.pointsAwarded || w.points || 0;
+        const time = new Date(w.reviewedAt || w.publishedAt || w.timestamp || 0).getTime();
+        if (!isNaN(time) && time > 0 && points > 0) {
           userContributions.push({ time, points });
           calculatedPoints += points;
         }
@@ -94,7 +95,10 @@ const ProgressionGraph = ({ data }) => {
       // Factor in login points or unstructured score differences
       const missingPoints = (user.score || 0) - calculatedPoints;
       if (missingPoints > 0) {
-        const baseTime = user.createdAt ? new Date(user.createdAt).getTime() : Date.now() - 86400000;
+        // Anchor to the earliest actual solve time if available, or lastActivityAt/updatedAt
+        const baseTime = userContributions.length > 0 
+          ? userContributions[0].time 
+          : (user.lastActivityAt ? new Date(user.lastActivityAt).getTime() : (user.updatedAt ? new Date(user.updatedAt).getTime() : Date.now()));
         userContributions.push({ time: baseTime, points: missingPoints });
       }
 
@@ -112,21 +116,28 @@ const ProgressionGraph = ({ data }) => {
       });
     });
 
+    if (allEvents.length === 0) return [];
+
     // Sort all events across all users by time
     allEvents.sort((a, b) => a.time - b.time);
+
+    const firstTime = allEvents[0].time;
+    const latestTime = allEvents[allEvents.length - 1].time;
+    const timeSpan = Math.max(0, latestTime - firstTime);
+
+    // Initial baseline offset (5-15 mins before first event or proportional)
+    const initialOffset = timeSpan > 0 ? Math.min(3600000, Math.max(300000, timeSpan * 0.05)) : 600000;
 
     const points = [];
     const currentScores = {};
     activeUsers.forEach(u => currentScores[u.username] = 0);
 
-    // Initial point
-    if (allEvents.length > 0) {
-      points.push({
-        time: allEvents[0].time - 3600000,
-        isInitial: true,
-        ...currentScores
-      });
-    }
+    // Initial baseline point (everyone at 0)
+    points.push({
+      time: firstTime - initialOffset,
+      isInitial: true,
+      ...currentScores
+    });
 
     // Group events by exact timestamp
     const eventsByTime = {};
@@ -153,14 +164,8 @@ const ProgressionGraph = ({ data }) => {
       });
     });
 
-    // Final point
-    if (allEvents.length > 0) {
-      points.push({
-        time: Date.now(),
-        isFinal: true,
-        ...currentScores
-      });
-    }
+    // The graph now ends ("freezes") precisely at the timestamp of the latest earned point.
+    // No artificial Date.now() is appended, preventing long empty flat lines.
 
     return points;
   }, [data]);
@@ -168,6 +173,7 @@ const ProgressionGraph = ({ data }) => {
   const formatTime = (time) => {
     if (!time) return '';
     const date = new Date(time);
+    if (isNaN(date.getTime())) return '';
     return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
   };
 

@@ -400,7 +400,7 @@ export default function EventModules() {
                       </div>
                       <button
                         onClick={() => {
-                          if (!isLocked) navigate(`/modules/${modId}/section/${i}`);
+                          if (!isLocked) navigate(`/modules/${modId}/section/${i}`, { state: { returnTo: `/events/${eventId}/arena/modules?moduleId=${modId}` } });
                         }}
                         disabled={isLocked}
                         style={{

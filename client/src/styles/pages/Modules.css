@@ -161,14 +161,19 @@
 }
 
 .module-card-desc {
-  /* Full description — no clamping, always fully visible */
   color: #94a3b8;
   font-size: 0.7rem;
   line-height: 1.65;
   margin: 0 0 14px 0;
-  flex: 1; /* push footer down */
   word-break: break-word;
+
+  /* Hard 3-line clamp — ellipsis shows when text overflows */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
 }
+
 
 /* Sections / progress % row */
 .module-card-meta-row {
@@ -179,10 +184,10 @@
   margin-bottom: 10px;
 }
 
-/* Progress bar — always rendered, 0% looks empty */
+/* Progress bar — only show track when there is actual progress */
 .module-card-progress {
   height: 4px;
-  background: rgba(255, 255, 255, 0.07);
+  background: transparent; /* hide grey track at 0% */
   border-radius: 2px;
   overflow: hidden;
   margin-top: 16px;
@@ -195,12 +200,28 @@
   min-width: 0;
 }
 
-/* Actions row with Enter button */
-.module-card-actions {
-  margin-top: 16px; /* Ensure spacing from content */
+/* Show the track only when progress has begun */
+.module-card-progress:has(.module-card-progress-fill[style*="width"]:not([style*="width: 0"])) {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+/* Footer row: meta badges left, Enter button right, pushed to card bottom */
+.module-card-footer-row {
   display: flex;
-  justify-content: flex-end;
-  padding-top: 10px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 14px;
+  flex-wrap: nowrap;
+}
+
+.module-card-footer-row .module-card-meta-row {
+  margin-bottom: 0;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
 }
 
 .module-enter-btn {

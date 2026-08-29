@@ -1,46 +1,75 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, User, Target, BookOpen, FileText, Calendar, CheckCircle2, Clock, ExternalLink, Trophy } from 'lucide-react';
+import ChallengeModal from '../../components/modals/ChallengeModal';
 import '../../styles/pages/Dashboard.css';
 
 export default function UserDetailView() {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState('challenges'); // 'challenges', 'modules', 'writeups'
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'challenges');
+  const [selectedChallenge, setSelectedChallenge] = useState(null);
 
   const isSupervisorRoute = location.pathname.startsWith('/supervisor');
   const backUrl = isSupervisorRoute ? '/supervisor' : '/admin';
 
+  const formatDate = (dateVal) => {
+    if (!dateVal) return '';
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return '';
+    const day = d.getDate();
+    const month = d.toLocaleString('en-US', { month: 'short' });
+    const year = d.getFullYear();
+    return `${day} ${month} ${year}`;
+  };
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    setSearchParams({ tab });
+  };
+
   useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam && ['challenges', 'modules', 'writeups', 'events'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    let isMounted = true;
     const fetchUserDetails = async () => {
       setLoading(true);
+      setError('');
       try {
         const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/admin/users/${id}`, {
           headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
         });
         if (res.ok) {
           const data = await res.json();
-          setUserData(data);
+          if (isMounted) setUserData(data);
         } else {
           try {
             const errData = await res.json();
-            setError(errData.error ? `Error: ${errData.error} | ${errData.stack}` : 'Failed to fetch user details');
+            if (isMounted) setError(errData.error ? `Error: ${errData.error} | ${errData.stack}` : 'Failed to fetch user details');
           } catch(e) {
-            setError('Failed to fetch user details');
+            if (isMounted) setError('Failed to fetch user details');
           }
         }
       } catch (err) {
         console.error(err);
-        setError('Server error loading user details');
+        if (isMounted) setError('Server error loading user details');
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
     fetchUserDetails();
+    return () => { isMounted = false; };
   }, [id]);
 
   if (loading) {
@@ -115,25 +144,25 @@ export default function UserDetailView() {
       {/* Tabs */}
       <div style={{ display: 'flex', gap: '12px', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '12px', flexWrap: 'wrap' }}>
         <button 
-          onClick={() => setActiveTab('challenges')} 
+          onClick={() => handleTabChange('challenges')} 
           style={{ background: activeTab === 'challenges' ? 'rgba(56, 189, 248, 0.15)' : 'transparent', color: activeTab === 'challenges' ? '#38bdf8' : '#94a3b8', border: activeTab === 'challenges' ? '1px solid rgba(56, 189, 248, 0.3)' : '1px solid rgba(255,255,255,0.05)', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
         >
           <Target size={14} /> Solved Challenges ({solves.length})
         </button>
         <button 
-          onClick={() => setActiveTab('modules')} 
+          onClick={() => handleTabChange('modules')} 
           style={{ background: activeTab === 'modules' ? 'rgba(0, 240, 255, 0.15)' : 'transparent', color: activeTab === 'modules' ? '#00f0ff' : '#94a3b8', border: activeTab === 'modules' ? '1px solid rgba(0, 240, 255, 0.3)' : '1px solid rgba(255,255,255,0.05)', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
         >
           <BookOpen size={14} /> Completed Modules ({modules.length})
         </button>
         <button 
-          onClick={() => setActiveTab('writeups')} 
+          onClick={() => handleTabChange('writeups')} 
           style={{ background: activeTab === 'writeups' ? 'rgba(168, 85, 247, 0.15)' : 'transparent', color: activeTab === 'writeups' ? '#a855f7' : '#94a3b8', border: activeTab === 'writeups' ? '1px solid rgba(168, 85, 247, 0.3)' : '1px solid rgba(255,255,255,0.05)', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
         >
           <FileText size={14} /> Writeups ({writeups.length})
         </button>
         <button 
-          onClick={() => setActiveTab('events')} 
+          onClick={() => handleTabChange('events')} 
           style={{ background: activeTab === 'events' ? 'rgba(245, 158, 11, 0.15)' : 'transparent', color: activeTab === 'events' ? '#f59e0b' : '#94a3b8', border: activeTab === 'events' ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid rgba(255,255,255,0.05)', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
         >
           <Calendar size={14} /> Events ({events.length})
@@ -148,20 +177,62 @@ export default function UserDetailView() {
               <div style={{ color: '#64748b', fontStyle: 'italic', padding: '20px 0' }}>No challenges solved yet.</div>
             ) : (
               solves.map((s, idx) => (
-                <div key={idx} style={{ background: '#12141a', border: '1px solid rgba(56, 189, 248, 0.2)', borderRadius: '12px', padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '12px' }}>
+                <div 
+                  key={idx} 
+                  onClick={() => {
+                    if (s.challengeId) {
+                      setSelectedChallenge({
+                        ...(typeof s.challengeId === 'object' ? s.challengeId : {}),
+                        _id: s.challengeId._id || s.challengeId.id || s.challengeId,
+                        id: s.challengeId._id || s.challengeId.id || s.challengeId,
+                        title: s.challengeId.title || 'Challenge',
+                        isSolved: true
+                      });
+                    }
+                  }}
+                  style={{ 
+                    background: '#12141a', 
+                    border: '1px solid rgba(56, 189, 248, 0.2)', 
+                    borderRadius: '12px', 
+                    padding: '20px', 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    justifyContent: 'space-between', 
+                    gap: '12px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.2)'
+                  }}
+                  onMouseOver={(e) => { 
+                    e.currentTarget.style.transform = 'translateY(-2px)'; 
+                    e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.5)'; 
+                    e.currentTarget.style.boxShadow = '0 8px 30px rgba(56, 189, 248, 0.15)'; 
+                  }}
+                  onMouseOut={(e) => { 
+                    e.currentTarget.style.transform = 'translateY(0)'; 
+                    e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.2)'; 
+                    e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.2)'; 
+                  }}
+                >
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
                       <h4 style={{ margin: 0, color: '#fff', fontSize: '1.1rem' }}>{s.challengeId?.title || 'Unknown Challenge'}</h4>
                       <span style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', padding: '4px 8px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700 }}>
-                        {s.challengeId?.points || 0} pts
+                        {s.awardedPoints !== undefined ? s.awardedPoints : (s.awardedPointsAtSolveTime !== undefined ? s.awardedPointsAtSolveTime : (s.challengeId?.points || 0))} pts
                       </span>
                     </div>
                     <div style={{ color: '#38bdf8', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>
                       {s.challengeId?.category || 'General'} • {s.challengeId?.difficulty || 'EASY'}
+                      {s.challengeId?.eventId && <span style={{ marginLeft: '8px', color: '#f59e0b', fontSize: '0.75rem' }}>[EVENT]</span>}
                     </div>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748b', fontSize: '0.8rem', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '10px' }}>
-                    <Calendar size={14} /> Solved on {new Date(s.timestamp).toLocaleDateString()}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#64748b', fontSize: '0.8rem', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '10px' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Calendar size={14} /> Solved on {formatDate(s.solvedAt || s.timestamp || Date.now())}
+                    </span>
+                    <span style={{ color: '#38bdf8', fontSize: '0.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <ExternalLink size={12} /> Inspect
+                    </span>
                   </div>
                 </div>
               ))
@@ -175,19 +246,54 @@ export default function UserDetailView() {
               <div style={{ color: '#64748b', fontStyle: 'italic', padding: '20px 0' }}>No modules completed yet.</div>
             ) : (
               modules.map((m, idx) => (
-                <div key={idx} style={{ background: '#12141a', border: '1px solid rgba(0, 240, 255, 0.2)', borderRadius: '12px', padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '12px' }}>
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                      <h4 style={{ margin: 0, color: '#fff', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <CheckCircle2 size={18} color="#00f0ff" /> {m.title}
-                      </h4>
-                      <span style={{ background: 'rgba(0, 240, 255, 0.15)', color: '#00f0ff', padding: '4px 8px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700 }}>
-                        {m.points || 100} pts
-                      </span>
-                    </div>
-                    <p style={{ color: '#94a3b8', fontSize: '0.85rem', lineHeight: 1.5, margin: 0 }}>
-                      {m.description || 'No description provided.'}
-                    </p>
+                <div 
+                  key={idx} 
+                  onClick={() => {
+                    const modId = m.moduleId || m._id || m.id;
+                    const returnPath = `${location.pathname}?tab=modules`;
+                    navigate(`/modules?moduleId=${modId}`, {
+                      state: { returnTo: returnPath }
+                    });
+                  }}
+                  style={{ 
+                    background: '#12141a', 
+                    border: '1px solid rgba(0, 240, 255, 0.2)', 
+                    borderRadius: '12px', 
+                    padding: '20px', 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    justifyContent: 'space-between', 
+                    gap: '16px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.2)'
+                  }}
+                  onMouseOver={(e) => { 
+                    e.currentTarget.style.transform = 'translateY(-2px)'; 
+                    e.currentTarget.style.borderColor = 'rgba(0, 240, 255, 0.5)'; 
+                    e.currentTarget.style.boxShadow = '0 8px 30px rgba(0, 240, 255, 0.15)'; 
+                  }}
+                  onMouseOut={(e) => { 
+                    e.currentTarget.style.transform = 'translateY(0)'; 
+                    e.currentTarget.style.borderColor = 'rgba(0, 240, 255, 0.2)'; 
+                    e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.2)'; 
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
+                    <h4 style={{ margin: 0, color: '#fff', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '8px', lineHeight: 1.3 }}>
+                      <CheckCircle2 size={18} color="#00f0ff" style={{ flexShrink: 0 }} /> {m.title}
+                    </h4>
+                    <span style={{ background: 'rgba(0, 240, 255, 0.15)', color: '#00f0ff', padding: '4px 8px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                      {m.earnedPoints !== undefined ? m.earnedPoints : (m.points || 100)} pts
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#64748b', fontSize: '0.8rem', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '10px' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Calendar size={14} /> Completed on {formatDate(m.completedAt || Date.now())}
+                    </span>
+                    <span style={{ color: '#00f0ff', fontSize: '0.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <ExternalLink size={12} /> Open Module
+                    </span>
                   </div>
                 </div>
               ))
@@ -252,7 +358,7 @@ export default function UserDetailView() {
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#64748b', fontSize: '0.8rem', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '12px', marginTop: '4px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Clock size={14} /> {new Date(w.createdAt).toLocaleDateString()}</span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Clock size={14} /> {formatDate(w.createdAt)}</span>
                       <span style={{ color: '#10b981', fontWeight: 700 }}>{w.pointsAwarded || 0} pts</span>
                     </div>
                     <button 
@@ -300,7 +406,7 @@ export default function UserDetailView() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748b', fontSize: '0.8rem', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '10px' }}>
-                    <Calendar size={14} /> Registered on {new Date(e.registeredAt).toLocaleDateString()}
+                    <Calendar size={14} /> Registered on {formatDate(e.registeredAt)}
                   </div>
                 </div>
               ))
@@ -308,6 +414,15 @@ export default function UserDetailView() {
           </div>
         )}
       </div>
+
+      {/* Challenge Inspect Modal */}
+      {selectedChallenge && (
+        <ChallengeModal
+          challenge={selectedChallenge}
+          onClose={() => setSelectedChallenge(null)}
+          readOnly={true}
+        />
+      )}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { BookOpen, ChevronLeft, CheckCircle, Brain, ArrowRight, Loader2, Eye, AlertTriangle, Award, Lock } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import ModuleCard from '../../components/cards/ModuleCard';
@@ -11,11 +11,13 @@ const API = (import.meta.env.VITE_API_URL || "http://localhost:5000");
 
 export default function Modules() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const isPrivileged = user?.role === 'Admin' || user?.role === 'Supervisor';
 
   const [searchParams, setSearchParams] = useSearchParams();
   const [dbModules, setDbModules] = useState([]);
+  const [extraModule, setExtraModule] = useState(null);
   const [progressMap, setProgressMap] = useState({});
   const [loading, setLoading] = useState(true);
 
@@ -120,7 +122,24 @@ export default function Modules() {
   }
 
   const activeModuleId = searchParams.get('moduleId');
-  const activeModule = activeModuleId ? allModules.find(m => String(m._id || m.id) === activeModuleId) : null;
+
+  // Load individual module if activeModuleId is not in the general list (e.g. event module accessed from admin dossier)
+  useEffect(() => {
+    if (activeModuleId && !allModules.some(m => String(m._id || m.id) === activeModuleId)) {
+      fetch(`${API}/api/modules/${activeModuleId}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      })
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (data) setExtraModule(enrichModuleProgress(data));
+        })
+        .catch(console.error);
+    } else {
+      setExtraModule(null);
+    }
+  }, [activeModuleId, dbModules]);
+
+  const activeModule = (activeModuleId ? allModules.find(m => String(m._id || m.id) === activeModuleId) : null) || extraModule;
 
   // Filter by Search and Role Visibility
   const filteredModules = allModules.filter(mod => {
@@ -267,8 +286,14 @@ export default function Modules() {
       ) : (
         /* Module Detail View */
         <div className="module-detail">
-          <button className="back-btn" onClick={() => setSearchParams({})}>
-            <ChevronLeft size={16} /> Back to Learning Paths
+          <button className="back-btn" onClick={() => {
+            if (location.state?.returnTo) {
+              navigate(location.state.returnTo);
+            } else {
+              setSearchParams({});
+            }
+          }}>
+            <ChevronLeft size={16} /> {location.state?.returnTo ? 'Back to User Profile' : 'Back to Learning Paths'}
           </button>
 
           <div className="module-detail-header" style={{ '--module-color': activeModule.color }}>
@@ -388,7 +413,7 @@ export default function Modules() {
                           ...(isLocked ? { borderColor: 'rgba(255,255,255,0.1)', color: '#94a3b8', cursor: 'not-allowed', background: 'transparent' } : {})
                         }}
                         onClick={() => {
-                          if (!isLocked) navigate(`/modules/${modId}/section/${i}`);
+                          if (!isLocked) navigate(`/modules/${modId}/section/${i}`, { state: { returnTo: `/modules?moduleId=${modId}` } });
                         }}
                         disabled={isLocked}
                       >

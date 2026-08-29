@@ -56,33 +56,35 @@ const ModuleCard = ({ mod, isPrivileged, prereqLabel, pct, onClick }) => {
       <h3 className="module-card-title">{mod.title}</h3>
       <p className="module-card-desc">{mod.description}</p>
 
-      {/* Pages count — always visible */}
-      <div className="module-card-meta-row">
-        <span className="module-meta">{mod.pages?.length || mod.sections?.length || 0} Pages</span>
-        <span className="module-meta" style={{ color: '#00f0ff', fontWeight: 600 }}>
-          {mod.pointsMode === 'page' 
-            ? `${mod.earnedPoints || 0}/${mod.points || 0}` 
-            : (pct === 100 ? `${mod.earnedPoints !== undefined ? mod.earnedPoints : mod.points}/${mod.points || 100}` : (mod.points || 100))} pts
-        </span>
-        {pct > 0 && (
-          <span className="module-meta" style={{ color: pct === 100 ? '#22c55e' : mod.color }}>
-            {pct === 100 ? '✓ Done' : `${pct}% done`}
-          </span>
-        )}
-        {locked && !isPrivileged && prereqLabel && (
-          <span style={{ fontSize: '0.72rem', color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <AlertTriangle size={11} /> Requires: {prereqLabel}
-          </span>
-        )}
-      </div>
 
-      {/* Progress bar — always show (0% = empty bar) */}
-      <div className="module-card-progress">
-        <div className="module-card-progress-fill" style={{ width: `${pct}%`, background: mod.color }} />
-      </div>
+      {/* Progress bar — only show when there is actual progress */}
+      {pct > 0 && (
+        <div className="module-card-progress">
+          <div className="module-card-progress-fill" style={{ width: `${pct}%`, background: mod.color }} />
+        </div>
+      )}
 
-      {/* Enter button */}
-      <div className="module-card-actions">
+      {/* Footer: Pages/Pts on left, Enter button on right */}
+      <div className="module-card-footer-row">
+        <div className="module-card-meta-row">
+          <span className="module-meta">{mod.pages?.length || mod.sections?.length || 0} Pages</span>
+          <span className="module-meta" style={{ color: '#00f0ff', fontWeight: 600 }}>
+            {mod.pointsMode === 'page'
+              ? `${mod.earnedPoints || 0}/${mod.points || 0}`
+              : (pct === 100 ? `${mod.earnedPoints !== undefined ? mod.earnedPoints : mod.points}/${mod.points || 100}` : (mod.points || 100))} pts
+          </span>
+          {pct > 0 && (
+            <span className="module-meta" style={{ color: pct === 100 ? '#22c55e' : mod.color }}>
+              {pct === 100 ? '✓ Done' : `${pct}% done`}
+            </span>
+          )}
+          {locked && !isPrivileged && prereqLabel && (
+            <span style={{ fontSize: '0.72rem', color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <AlertTriangle size={11} /> Requires: {prereqLabel}
+            </span>
+          )}
+        </div>
+
         <button
           className="module-enter-btn"
           style={{

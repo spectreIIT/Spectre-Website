@@ -6,6 +6,8 @@ import Writeup from '../models/Writeup.js';
 import Module from '../models/Module.js';
 import ModuleProgress from '../models/ModuleProgress.js';
 import UserXpHistory from '../models/UserXpHistory.js';
+import ActivityLog from '../models/ActivityLog.js';
+import EventRegistration from '../models/EventRegistration.js';
 import { protect } from '../middleware/authMiddleware.js';
 import { recalculateUserScore } from '../utils/scoreHelper.js';
 import sendEmail from '../utils/sendEmail.js';
@@ -13,24 +15,54 @@ import sendEmail from '../utils/sendEmail.js';
 const router = express.Router();
 
 // @route   GET /api/users/leaderboard
-// @desc    Get top users for leaderboard
+// @desc    Get top users for leaderboard (only operatives who earned points in challenges, modules, events, or writeups)
 // @access  Public or Private
 router.get('/leaderboard', async (req, res) => {
   try {
-    const topUsers = await User.find({ score: { $gt: 0 } })
-      .select('username score avatarUrl solves')
-      .populate('solves.challengeId', 'points')
-      .sort({ score: -1 })
-      .limit(10);
+    const allUsersWithScore = await User.find({ score: { $gt: 0 } })
+      .select('username score avatarUrl solves lastActivityAt updatedAt createdAt')
+      .populate('solves.challengeId', 'title points eventId')
+      .sort({ score: -1, updatedAt: -1 });
 
-    // Fetch completed modules progress for these top users
-    const userIds = topUsers.map(u => u._id);
-    const completedProgressList = await ModuleProgress.find({
-      user: { $in: userIds },
-      isCompleted: true
-    }).lean();
+    if (!allUsersWithScore || allUsersWithScore.length === 0) {
+      return res.json([]);
+    }
+
+    const allUserIds = allUsersWithScore.map(u => u._id);
+
+    // Fetch related records in parallel to determine eligibility and enrich results
+    const [
+      allProgressList,
+      approvedWriteups,
+      eventRegistrations,
+      loginCounts,
+      historyLogs
+    ] = await Promise.all([
+      ModuleProgress.find({ user: { $in: allUserIds } }).lean(),
+      Writeup.find({
+        author: { $in: allUserIds },
+        status: { $in: ['approved', 'Approved', 'Published', 'published'] },
+        pointsAwarded: { $gt: 0 }
+      }).lean(),
+      EventRegistration.find({
+        userId: { $in: allUserIds },
+        score: { $gt: 0 }
+      }).lean(),
+      ActivityLog.aggregate([
+        { $match: { userId: { $in: allUserIds }, type: 'login' } },
+        { $group: { _id: '$userId', count: { $sum: 1 } } }
+      ]),
+      UserXpHistory.find({ userId: { $in: allUserIds } }).sort({ timestamp: 1 }).lean()
+    ]);
+
+    // Map login score per user (2 points per daily login)
+    const loginScoreMap = new Map();
+    loginCounts.forEach(lc => {
+      loginScoreMap.set(lc._id.toString(), lc.count * 2);
+    });
 
     // Map module points
+    const completedProgressList = allProgressList.filter(p => p.isCompleted);
     const completedModuleIds = completedProgressList.map(p => p.moduleId);
     const dbModuleIds = completedModuleIds.filter(id => mongoose.Types.ObjectId.isValid(id));
     const dbModules = await Module.find({ _id: { $in: dbModuleIds } }).lean();
@@ -46,44 +78,79 @@ router.get('/leaderboard', async (req, res) => {
       modulePointsMap[m._id.toString()] = m.points || 100;
     });
 
-    // Fetch approved writeups for these users to get their exact writeup points
-    const approvedWriteups = await Writeup.find({
-      author: { $in: userIds },
-      status: { $in: ['approved', 'Approved', 'Published', 'published', 'published'] },
-      pointsAwarded: { $gt: 0 }
-    }).lean();
+    // Filter users: only consider people who have earned points from challenges, modules, events, or writeups.
+    // Exclude users whose points originate solely from login bonuses.
+    const eligibleUsers = allUsersWithScore.filter(u => {
+      const uIdStr = u._id.toString();
 
-    // Fetch history
-    const historyLogs = await UserXpHistory.find({ userId: { $in: userIds } }).sort({ timestamp: 1 }).lean();
+      // 1. Has solved at least one challenge (global or event challenge)
+      const hasChallengeSolve = (u.solves || []).some(s => 
+        s.challengeId && (
+          (s.awardedPointsAtSolveTime !== undefined && s.awardedPointsAtSolveTime > 0) ||
+          (s.challengeId.points !== undefined && s.challengeId.points > 0) ||
+          (typeof s.challengeId === 'object')
+        )
+      );
+      if (hasChallengeSolve) return true;
+
+      // 2. Has completed any module or has legacy event bonus
+      const userProgress = allProgressList.filter(p => p.user && p.user.toString() === uIdStr);
+      const hasModulePoints = userProgress.some(p => 
+        p.isCompleted || 
+        p.isCompletedDuringEvent ||
+        (p.legacyEventBonus && p.legacyEventBonus > 0)
+      );
+      if (hasModulePoints) return true;
+
+      // 3. Has earned points in any event registration
+      const hasEventRegistrationScore = eventRegistrations.some(er => 
+        er.userId && er.userId.toString() === uIdStr && er.score > 0
+      );
+      if (hasEventRegistrationScore) return true;
+
+      // 4. Has approved writeups with awarded points
+      const hasWriteupPoints = approvedWriteups.some(w => 
+        (w.author || w.authorId || '').toString() === uIdStr && (w.pointsAwarded || 0) > 0
+      );
+      if (hasWriteupPoints) return true;
+
+      // 5. Total score is greater than login bonus points (earned non-login score > 0)
+      const loginScore = loginScoreMap.get(uIdStr) || 0;
+      if (u.score > loginScore) return true;
+
+      // Ineligible: user has only gained points from daily login
+      return false;
+    });
+
+    // Limit to top 100 eligible users
+    const topUsers = eligibleUsers.slice(0, 100);
 
     const enrichedUsers = topUsers.map(u => {
-      const userProgress = completedProgressList.filter(p => p.user.toString() === u._id.toString());
+      const uIdStr = u._id.toString();
+      const userProgress = completedProgressList.filter(p => p.user && p.user.toString() === uIdStr);
       const completedModules = userProgress.map(p => ({
         moduleId: p.moduleId,
-        points: modulePointsMap[p.moduleId] || 100,
-        timestamp: p.lastActivityAt || p.completedAt || new Date()
+        points: (modulePointsMap[p.moduleId] || 100) + (p.legacyEventBonus || 0),
+        timestamp: p.lastActivityAt || p.completedAt || p.updatedAt || new Date()
       }));
 
-      const history = historyLogs.filter(h => h.userId.toString() === u._id.toString()).map(h => ({
+      const history = historyLogs.filter(h => h.userId && h.userId.toString() === uIdStr).map(h => ({
         timestamp: h.timestamp,
         score: h.totalXP
       }));
 
-      // Fallback: If no history exists, inject current score as one data point
-      if (history.length === 0 && u.score > 0) {
-        history.push({
-          timestamp: new Date(), // Plotting it today
-          score: u.score
-        });
-      }
+      // Map all solves with accurate points for progression graph
+      const mappedSolves = (u.solves || []).filter(s => s.challengeId).map(s => ({
+        challengeId: s.challengeId,
+        awardedPoints: s.awardedPointsAtSolveTime !== undefined ? s.awardedPointsAtSolveTime : (s.challengeId?.points || 0),
+        timestamp: s.solvedAt || s.timestamp || new Date()
+      }));
 
-      // Filter out event-specific solves for the global leaderboard
-      const globalSolves = (u.solves || []).filter(s => s.challengeId && !s.challengeId.eventId);
       const userObj = u.toObject();
-      userObj.solves = globalSolves;
+      userObj.solves = mappedSolves;
 
       const userWriteups = approvedWriteups.filter(w => 
-        (w.author || w.authorId).toString() === u._id.toString()
+        (w.author || w.authorId || '').toString() === uIdStr
       ).map(w => ({
         points: w.pointsAwarded,
         timestamp: w.reviewedAt || w.publishedAt || w.updatedAt || w.createdAt

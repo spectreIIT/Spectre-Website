@@ -137,6 +137,7 @@ function App() {
           </Route>
 
           {/* Module Reader — full screen, no sidebar */}
+          <Route path="/modules/:moduleId" element={<ModuleReader />} />
           <Route path="/modules/:moduleId/section/:sectionIdx" element={<ModuleReader />} />
 
           {/* Standalone Module Editor — full screen, no sidebar */}

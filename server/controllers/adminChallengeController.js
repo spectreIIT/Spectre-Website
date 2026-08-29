@@ -113,19 +113,30 @@ export const getSolves = async (req, res) => {
     const challenge = await Challenge.findById(req.params.id);
     if (!challenge) return res.status(404).json({ message: 'Challenge not found' });
 
-    const solves = await Submission.find({ challenge: req.params.id, isCorrect: true })
+    const submissions = await Submission.find({ challenge: req.params.id, isCorrect: true })
       .populate('user', 'username email score')
       .sort({ timestamp: -1 });
 
+    // Deduplicate submissions by user
+    const seenUsers = new Set();
+    const plainSolves = [];
+    
+    submissions.forEach(sub => {
+      const uObj = sub.toObject ? sub.toObject() : sub;
+      const uId = uObj.user?._id?.toString() || uObj.user?.toString();
+      if (uId && !seenUsers.has(uId)) {
+        seenUsers.add(uId);
+        plainSolves.push(uObj);
+      }
+    });
+
     // Fallback: Fetch from User solves if some Submission records are missing
     const usersWhoSolved = await User.find({ "solves.challengeId": req.params.id });
-    
-    // Transform the database mongoose objects to plain objects so we can mutate/push
-    const plainSolves = solves.map(s => s.toObject ? s.toObject() : s);
 
     usersWhoSolved.forEach(user => {
-      const alreadyInList = plainSolves.some(s => s.user?._id?.toString() === user._id.toString());
-      if (!alreadyInList) {
+      const uId = user._id.toString();
+      if (!seenUsers.has(uId)) {
+        seenUsers.add(uId);
         const solveEntry = user.solves.find(s => s.challengeId?.toString() === req.params.id.toString());
         if (solveEntry) {
           plainSolves.push({
@@ -152,7 +163,7 @@ export const getSolves = async (req, res) => {
     });
 
     // Re-sort in descending chronological order
-    plainSolves.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    plainSolves.sort((a, b) => new Date(b.timestamp || b.solvedAt) - new Date(a.timestamp || a.solvedAt));
 
     res.json(plainSolves);
   } catch (error) {
@@ -174,15 +185,27 @@ export const getChallengeAnalytics = async (req, res) => {
       .sort({ timestamp: 1 }); // Chronological order
 
     const plainSubmissions = submissions.map(s => s.toObject ? s.toObject() : s);
-    const solves = plainSubmissions.filter(s => s.isCorrect);
+    const rawSolves = plainSubmissions.filter(s => s.isCorrect);
     const incorrects = plainSubmissions.filter(s => !s.isCorrect);
+
+    // Deduplicate solves by user
+    const seenSolveUsers = new Set();
+    const solves = [];
+    rawSolves.forEach(s => {
+      const uId = s.user?._id?.toString() || s.user?.toString();
+      if (uId && !seenSolveUsers.has(uId)) {
+        seenSolveUsers.add(uId);
+        solves.push(s);
+      }
+    });
 
     // Fallback: Fetch from User solves if some Submission records are missing
     const usersWhoSolved = await User.find({ "solves.challengeId": req.params.id });
 
     usersWhoSolved.forEach(user => {
-      const alreadyInList = solves.some(s => s.user?._id?.toString() === user._id.toString());
-      if (!alreadyInList) {
+      const uId = user._id.toString();
+      if (!seenSolveUsers.has(uId)) {
+        seenSolveUsers.add(uId);
         const solveEntry = user.solves.find(s => s.challengeId?.toString() === req.params.id.toString());
         if (solveEntry) {
           solves.push({

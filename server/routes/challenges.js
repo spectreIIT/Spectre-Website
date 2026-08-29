@@ -143,7 +143,16 @@ router.post('/:id/submit', protect, async (req, res) => {
     }
 
     if (!isTeamEvent) {
-       alreadySolved = user.solves.some(s => s.challengeId && s.challengeId.toString() === challenge._id.toString());
+      // Double-check against Submission collection too (catches edge cases where
+      // user.solves was corrupted but a correct Submission record still exists)
+      const existingCorrectSub = await Submission.findOne({
+        user: user._id,
+        challenge: challenge._id,
+        isCorrect: true
+      });
+      alreadySolved = existingCorrectSub
+        ? true
+        : user.solves.some(s => s.challengeId && s.challengeId.toString() === challenge._id.toString());
     }
 
     if (!alreadySolved && isPracticeMode) {
@@ -230,8 +239,9 @@ router.post('/:id/submit', protect, async (req, res) => {
 
     const awardedPoints = isPracticeMode ? 0 : Math.max(0, newPoints - hintDeductions);
 
-    // 5. Store permanently in User's solves
-    user.solves.push({
+    // 5. Atomically push solve into User.solves — the $ne guard prevents race-condition
+    //    duplicates even if two requests arrive simultaneously (e.g. double-click).
+    const solveEntry = {
       challengeId: challenge._id,
       solvedAt: new Date(),
       attempts: currentAttempts,
@@ -240,8 +250,34 @@ router.post('/:id/submit', protect, async (req, res) => {
       challengePointsBeforeSolve,
       challengePointsAfterSolve: newPoints,
       rank: isPracticeMode ? null : solveRank
-    });
-    await user.save();
+    };
+
+    const updateResult = await User.findOneAndUpdate(
+      {
+        _id: user._id,
+        'solves.challengeId': { $ne: challenge._id }  // Atomic guard: reject if already solved
+      },
+      { $push: { solves: solveEntry } },
+      { new: false }
+    );
+
+    if (!updateResult) {
+      // Another concurrent request won the race — do not double-award.
+      // Roll back the challenge.solves / currentPoints update that already happened above.
+      if (!isPracticeMode) {
+        await Challenge.findByIdAndUpdate(challenge._id, {
+          solves: Math.max(0, solveRank - 1),
+          currentPoints: challengePointsBeforeSolve
+        });
+      }
+      console.warn(`Concurrent duplicate solve blocked for user ${user._id} on challenge ${challenge._id}`);
+      return res.json({
+        success: true,
+        message: 'Correct flag! You have already solved this challenge.',
+        points: 0,
+        rank: null
+      });
+    }
 
     // 6. Create correct submission record
     await Submission.create({

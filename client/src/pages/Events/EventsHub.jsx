@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Trophy, ArrowRight, Lock, Unlock } from 'lucide-react';
 import API_URL from '../../constants/api';
 import { useSearch } from '../../context/SearchContext';
+import { useAuth } from '../../hooks/useAuth';
 import './EventsHub.css';
 
 const EventsHub = () => {
@@ -260,23 +261,23 @@ const EventsHub = () => {
             <span>⏱️ Ended</span>
           </div>
         </div>
-        
+
         <div className="upcoming-event-content">
           <div className="upcoming-event-meta-top">
             <span className="event-type-label" style={{ color: '#94a3b8' }}>
               {getEventTypeLabel(event)}
             </span>
           </div>
-          
+
           <h3 className="upcoming-event-title">{event.title}</h3>
-          
+
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b', fontSize: '0.85rem', marginBottom: '12px', fontWeight: 500 }}>
             <span>📅 {new Date(event.startDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
             <span style={{ marginLeft: '8px' }}>⏱️ {new Date(event.startDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
           </div>
 
           <p className="upcoming-event-desc" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>{event.description || 'No description provided.'}</p>
-          
+
           <div className="upcoming-event-footer">
             <div className="registered-count">
               <span style={{ fontSize: '1.1rem' }}>👥</span>
@@ -330,9 +331,11 @@ const EventsHub = () => {
 
       {pastEvents.length > 0 && (
         <div className="events-section">
-          <h2 className="section-title">
-            Past Events <span className="count-badge" style={{ backgroundColor: '#475569', color: '#e2e8f0' }}>{pastEvents.length} Archived</span>
-          </h2>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+            <h2 className="section-title" style={{ margin: 0 }}>
+              Past Events <span className="count-badge" style={{ backgroundColor: '#475569', color: '#e2e8f0' }}>{pastEvents.length} Archived</span>
+            </h2>
+          </div>
           <div className="upcoming-events-grid">
             {pastEvents.map(event => <PastEventCard key={event._id} event={event} />)}
           </div>

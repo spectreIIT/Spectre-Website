@@ -9,189 +9,201 @@ import Team from '../models/Team.js';
 import { protect, isAdmin, isSupervisor } from '../middleware/authMiddleware.js';
 import Notification from '../models/Notification.js';
 import User from '../models/User.js';
+import ModuleProgress from '../models/ModuleProgress.js';
 
 const router = express.Router();
 
-// Helper to archive event and migrate its challenges/modules to global with 50% points
-async function archiveEventAndMigrateContent(event) {
-  if (event.status === 'archived') return;
-
-  event.status = 'archived';
-  await Event.findByIdAndUpdate(event._id, { status: 'archived' });
-
+// ─── Core migration logic (shared by archive + backfill) ─────────────────────
+async function migrateEventContent(event) {
   try {
     // 1. Clone Challenges to Global
     const challenges = await Challenge.find({ eventId: event._id });
     for (const c of challenges) {
-       let globalChallenge = await Challenge.findOne({ title: c.title, eventId: null });
-       if (!globalChallenge) {
-         const newPoints = Math.round((c.currentPoints || c.points) * 0.5);
-         const cObj = c.toObject();
-         delete cObj._id;
-         
-         const newChallenge = new Challenge({
-             ...cObj,
-             eventId: null,
-             points: newPoints,
-             initialPoints: newPoints,
-             currentPoints: newPoints,
-             scoringType: 'static',
-             status: 'active',
-             solves: 0,
-             createdAt: Date.now()
-         });
-         globalChallenge = await newChallenge.save();
-       }
+      let globalChallenge = await Challenge.findOne({ title: c.title, eventId: null });
+      if (!globalChallenge) {
+        const newPoints = Math.round((c.currentPoints || c.points) * 0.5);
+        const cObj = c.toObject();
+        delete cObj._id;
 
-       // Migrate user solves for this challenge
-       const correctSubmissions = await Submission.find({ challenge: c._id, isCorrect: true, isPractice: { $ne: true } });
-       for (const sub of correctSubmissions) {
-          const user = await User.findById(sub.user);
-          if (user) {
-             const hasGlobalSolve = user.solves.some(s => s.challengeId && s.challengeId.toString() === globalChallenge._id.toString());
-             if (!hasGlobalSolve) {
-                const oldSolve = user.solves.find(s => s.challengeId && s.challengeId.toString() === c._id.toString());
-                const awardedPoints = oldSolve ? oldSolve.awardedPointsAtSolveTime : (sub.awardedPoints || c.points);
-                
-                user.solves.push({
-                   challengeId: globalChallenge._id,
-                   solvedAt: sub.timestamp,
-                   attempts: sub.attemptsBeforeSolve ? sub.attemptsBeforeSolve + 1 : 1,
-                   hintsUsed: sub.hintsUsed || [],
-                   awardedPointsAtSolveTime: awardedPoints,
-                   challengePointsBeforeSolve: awardedPoints,
-                   challengePointsAfterSolve: awardedPoints,
-                   rank: null
-                });
-                await user.save();
-             }
+        // NOTE: do NOT set solves:0 — we will compute it after migrating solves below
+        const newChallenge = new Challenge({
+          ...cObj,
+          eventId: null,
+          points: newPoints,
+          initialPoints: newPoints,
+          currentPoints: newPoints,
+          scoringType: 'static',
+          status: 'active',
+          createdAt: Date.now()
+        });
+        globalChallenge = await newChallenge.save();
+      }
+
+      // Migrate user solves for this challenge (preserving full event points)
+      const correctSubmissions = await Submission.find({ challenge: c._id, isCorrect: true, isPractice: { $ne: true } });
+      let newSolveCount = 0;
+      for (const sub of correctSubmissions) {
+        const user = await User.findById(sub.user);
+        if (user) {
+          const hasGlobalSolve = user.solves.some(s => s.challengeId && s.challengeId.toString() === globalChallenge._id.toString());
+          if (!hasGlobalSolve) {
+            const oldSolve = user.solves.find(s => s.challengeId && s.challengeId.toString() === c._id.toString());
+            // Preserve the FULL event points — not the halved global points
+            const awardedPoints = oldSolve ? oldSolve.awardedPointsAtSolveTime : (sub.awardedPoints || c.points);
+
+            user.solves.push({
+              challengeId: globalChallenge._id,
+              solvedAt: sub.timestamp,
+              attempts: sub.attemptsBeforeSolve ? sub.attemptsBeforeSolve + 1 : 1,
+              hintsUsed: sub.hintsUsed || [],
+              awardedPointsAtSolveTime: awardedPoints,
+              challengePointsBeforeSolve: awardedPoints,
+              challengePointsAfterSolve: awardedPoints,
+              rank: null
+            });
+            await user.save();
+            newSolveCount++;
+          } else {
+            // Already has global solve — still counts toward total
+            newSolveCount++;
           }
-       }
+        }
+      }
+
+      // Update the global challenge's solves count to reflect all event solvers
+      if (newSolveCount > 0) {
+        await Challenge.findByIdAndUpdate(globalChallenge._id, {
+          $max: { solves: newSolveCount }
+        });
+      }
     }
 
     // 2. Clone Modules to Global
     const modules = await Module.find({ eventId: event._id });
     const ModuleProgress = mongoose.model('ModuleProgress');
     for (const m of modules) {
-       let globalModule = await Module.findOne({ title: m.title, eventId: null });
-       if (!globalModule) {
-         const modObj = m.toObject();
-         delete modObj._id;
-         
-         const newPoints = Math.round((m.points || 0) * 0.5);
-         
-         if (modObj.pages && modObj.pages.length > 0) {
-            modObj.pages.forEach(page => {
-               page.points = Math.round((page.points || 0) * 0.5);
-               if (page.questions && page.questions.length > 0) {
-                  page.questions.forEach(q => {
-                     q.points = Math.round((q.points || 0) * 0.5);
-                  });
-               }
+      let globalModule = await Module.findOne({ title: m.title, eventId: null });
+      if (!globalModule) {
+        const modObj = m.toObject();
+        delete modObj._id;
+
+        const newPoints = Math.round((m.points || 0) * 0.5);
+
+        if (modObj.pages && modObj.pages.length > 0) {
+          modObj.pages.forEach(page => {
+            page.points = Math.round((page.points || 0) * 0.5);
+            if (page.questions && page.questions.length > 0) {
+              page.questions.forEach(q => {
+                q.points = Math.round((q.points || 0) * 0.5);
+              });
+            }
+          });
+        }
+
+        const newModule = new Module({
+          ...modObj,
+          eventId: null,
+          points: newPoints,
+          status: 'active',
+          createdAt: Date.now()
+        });
+        globalModule = await newModule.save();
+      }
+
+      // Migrate Module Progress (preserving full event points via legacyEventBonus)
+      const progresses = await ModuleProgress.find({ moduleId: m._id.toString() });
+      for (const prog of progresses) {
+        if (!prog.isCompletedDuringEvent && (!prog.completedSectionsDuringEvent || prog.completedSectionsDuringEvent.length === 0)) {
+          continue; // No progress made during the event
+        }
+        const existingGlobalProg = await ModuleProgress.findOne({ user: prog.user, moduleId: globalModule._id.toString() });
+        if (!existingGlobalProg) {
+          let eventPointsEarned = 0;
+          let globalPointsEarned = 0;
+          let totalDeductions = 0;
+          const revealedHints = new Set(prog.revealedHints || []);
+
+          m.pages.forEach(page => {
+            if (page.hints) {
+              page.hints.forEach(hint => {
+                if (revealedHints.has(hint.id)) totalDeductions += (hint.cost || 0);
+              });
+            }
+          });
+          if (m.challenge && m.challenge.hints) {
+            m.challenge.hints.forEach(hint => {
+              if (revealedHints.has(hint.id)) totalDeductions += (hint.cost || 0);
             });
-         }
-
-         const newModule = new Module({
-             ...modObj,
-             eventId: null,
-             points: newPoints,
-             status: 'active',
-             createdAt: Date.now()
-         });
-         globalModule = await newModule.save();
-       }
-
-       // Migrate Module Progress
-       const progresses = await ModuleProgress.find({ moduleId: m._id.toString() });
-       for (const prog of progresses) {
-          if (!prog.isCompletedDuringEvent && (!prog.completedSectionsDuringEvent || prog.completedSectionsDuringEvent.length === 0)) {
-             continue; // No progress made during the event
           }
-          const existingGlobalProg = await ModuleProgress.findOne({ user: prog.user, moduleId: globalModule._id.toString() });
-          if (!existingGlobalProg) {
-             let eventPointsEarned = 0;
-             let globalPointsEarned = 0;
-             let totalDeductions = 0;
-             const revealedHints = new Set(prog.revealedHints || []);
-             m.pages.forEach(page => {
-               if (page.hints) {
-                 page.hints.forEach(hint => {
-                   if (revealedHints.has(hint.id)) {
-                     totalDeductions += (hint.cost || 0);
-                   }
-                 });
-               }
-             });
-             if (m.challenge && m.challenge.hints) {
-               m.challenge.hints.forEach(hint => {
-                 if (revealedHints.has(hint.id)) {
-                   totalDeductions += (hint.cost || 0);
-                 }
-               });
-             }
 
+          if (m.pointsMode === 'page') {
+            let pagePoints = 0;
+            let globalPagePoints = 0;
+            const completedPages = new Set(prog.completedSectionsDuringEvent || []);
+            const completedQuestions = new Set(prog.completedQuestionsDuringEvent || []);
 
-             if (m.pointsMode === 'page') {
-                let pagePoints = 0;
-                let globalPagePoints = 0;
-                const completedPages = new Set(prog.completedSectionsDuringEvent || []);
-                const completedQuestions = new Set(prog.completedQuestionsDuringEvent || []);
-                
-                m.pages.forEach(page => {
-                   if (completedPages.has(page.id)) {
-                      pagePoints += (page.points || 0);
-                      // Global points were halved
-                      globalPagePoints += Math.round((page.points || 0) * 0.5);
-                   }
-                   if (page.questions && page.questions.length > 0) {
-                      page.questions.forEach(q => {
-                         if (completedQuestions.has(q.id)) {
-                            pagePoints += (q.points || 0);
-                            globalPagePoints += Math.round((q.points || 0) * 0.5);
-                         }
-                      });
-                   }
+            m.pages.forEach(page => {
+              if (completedPages.has(page.id)) {
+                pagePoints += (page.points || 0);
+                globalPagePoints += Math.round((page.points || 0) * 0.5);
+              }
+              if (page.questions && page.questions.length > 0) {
+                page.questions.forEach(q => {
+                  if (completedQuestions.has(q.id)) {
+                    pagePoints += (q.points || 0);
+                    globalPagePoints += Math.round((q.points || 0) * 0.5);
+                  }
                 });
-                eventPointsEarned = Math.max(0, pagePoints - totalDeductions);
-                globalPointsEarned = Math.max(0, globalPagePoints - totalDeductions);
-             } else {
-                if (prog.isCompletedDuringEvent) {
-                   eventPointsEarned = Math.max(0, (m.points || 0) - totalDeductions);
-                   globalPointsEarned = Math.max(0, Math.round((m.points || 0) * 0.5) - totalDeductions);
-                }
-             }
-
-             if (prog.isCompletedDuringEvent) {
-                const scheduleDate = m.scheduledFor ? new Date(m.scheduledFor) : new Date(m.createdAt);
-                const completionDate = new Date(prog.lastActivityAt || new Date());
-                
-                const releaseDay = scheduleDate.toISOString().split('T')[0];
-                const completionDay = completionDate.toISOString().split('T')[0];
-                if (releaseDay === completionDay) {
-                   eventPointsEarned += 5;
-                }
-             }
-
-             if (eventPointsEarned > 0 || prog.isCompletedDuringEvent) {
-                const newProg = new ModuleProgress({
-                   user: prog.user,
-                   moduleId: globalModule._id.toString(),
-                   completedSections: prog.completedSectionsDuringEvent || [],
-                   completedQuestions: prog.completedQuestionsDuringEvent || [],
-                   revealedHints: prog.revealedHints || [],
-                   quizResults: prog.quizResults || [],
-                   isCompleted: prog.isCompletedDuringEvent,
-                   lastActivityAt: prog.lastActivityAt,
-                   legacyEventBonus: Math.max(0, eventPointsEarned - globalPointsEarned)
-                });
-                await newProg.save();
-             }
+              }
+            });
+            eventPointsEarned = Math.max(0, pagePoints - totalDeductions);
+            globalPointsEarned = Math.max(0, globalPagePoints - totalDeductions);
+          } else {
+            if (prog.isCompletedDuringEvent) {
+              eventPointsEarned = Math.max(0, (m.points || 0) - totalDeductions);
+              globalPointsEarned = Math.max(0, Math.round((m.points || 0) * 0.5) - totalDeductions);
+            }
           }
-       }
+
+          if (prog.isCompletedDuringEvent) {
+            const scheduleDate = m.scheduledFor ? new Date(m.scheduledFor) : new Date(m.createdAt);
+            const completionDate = new Date(prog.lastActivityAt || new Date());
+            const releaseDay = scheduleDate.toISOString().split('T')[0];
+            const completionDay = completionDate.toISOString().split('T')[0];
+            if (releaseDay === completionDay) eventPointsEarned += 5;
+          }
+
+          if (eventPointsEarned > 0 || prog.isCompletedDuringEvent) {
+            const newProg = new ModuleProgress({
+              user: prog.user,
+              moduleId: globalModule._id.toString(),
+              completedSections: prog.completedSectionsDuringEvent || [],
+              completedQuestions: prog.completedQuestionsDuringEvent || [],
+              revealedHints: prog.revealedHints || [],
+              quizResults: prog.quizResults || [],
+              isCompleted: prog.isCompletedDuringEvent,
+              lastActivityAt: prog.lastActivityAt,
+              // legacyEventBonus = the DIFFERENCE between full event pts and halved global pts
+              // This is added on top when displaying earnedPoints in the Modules tab
+              legacyEventBonus: Math.max(0, eventPointsEarned - globalPointsEarned)
+            });
+            await newProg.save();
+          }
+        }
+      }
     }
   } catch (err) {
     console.error('Error migrating event content:', err);
+    throw err;
   }
+}
+
+// Helper to archive event and migrate its challenges/modules to global
+async function archiveEventAndMigrateContent(event) {
+  if (event.status === 'archived') return;
+  event.status = 'archived';
+  await Event.findByIdAndUpdate(event._id, { status: 'archived' });
+  await migrateEventContent(event);
 }
 
 // ── GET /api/events ──────────────────────────────────────────────────────────
@@ -572,10 +584,16 @@ router.get('/:id/leaderboard', protect, async (req, res) => {
       return entityScores[entityId];
     };
 
+    const entitySolvedChallenges = new Set();
+
     submissions.forEach(sub => {
       const entity = getEntity(sub.user);
       if (!entity) return;
       
+      const chalKey = `${entity._id}_${sub.challenge?.toString() || sub._id.toString()}`;
+      if (entitySolvedChallenges.has(chalKey)) return;
+      entitySolvedChallenges.add(chalKey);
+
       entity.score += (sub.awardedPoints || 0);
       entity.solves.push({
         timestamp: sub.timestamp,
@@ -726,27 +744,124 @@ router.get('/:id/participants', protect, async (req, res) => {
     const event = await Event.findById(req.params.id);
     if (!event) return res.status(404).json({ message: 'Event not found' });
 
-    // Ensure the requester is either registered or an admin/supervisor
-    if (req.user.role === 'Member') {
+    // Ensure the requester can view this event
+    const isPrivileged = req.user.role === 'Admin' || req.user.role === 'Supervisor';
+    if (!isPrivileged && (event.status === 'draft' || event.status === 'hidden')) {
       const reg = await EventRegistration.findOne({ eventId: event._id, userId: req.user._id });
       if (!reg) return res.status(403).json({ message: 'Access denied' });
     }
 
     const registrations = await EventRegistration.find({ eventId: event._id })
-      .populate('userId', 'username avatarUrl')
+      .populate({
+        path: 'userId',
+        select: 'username avatarUrl role email solves',
+        populate: {
+          path: 'solves.challengeId',
+          select: '_id title points category difficulty description eventId'
+        }
+      })
       .populate('teamId', 'name')
       .sort({ registeredAt: -1 });
 
-    const participants = registrations.map(reg => ({
-      _id: reg.userId._id,
-      username: reg.userId.username,
-      avatarUrl: reg.userId.avatarUrl,
-      teamName: reg.teamId ? reg.teamId.name : null,
-      registeredAt: reg.registeredAt
-    }));
+    // Pre-fetch all module objects belonging to this event for solves breakdown
+    let eventModulesMap = {};
+    if (isPrivileged) {
+      const eventModules = await Module.find({ eventId: event._id }).select('_id title points icon color').lean();
+      eventModules.forEach(m => {
+        eventModulesMap[m._id.toString()] = m;
+      });
+    }
+
+    // Pre-fetch module progress for all registered users in this event if privileged
+    const userIds = registrations.map(r => r.userId?._id).filter(Boolean);
+    let progressByUser = {};
+    if (isPrivileged && userIds.length > 0 && Object.keys(eventModulesMap).length > 0) {
+      const allModuleProgress = await ModuleProgress.find({
+        user: { $in: userIds },
+        moduleId: { $in: Object.keys(eventModulesMap) },
+        $or: [{ isCompleted: true }, { isCompletedDuringEvent: true }]
+      }).lean();
+
+      allModuleProgress.forEach(p => {
+        const uId = p.user.toString();
+        if (!progressByUser[uId]) progressByUser[uId] = [];
+        progressByUser[uId].push(p);
+      });
+    }
+
+    const isModuleEvent = event.eventType === 'module';
+
+    const participants = registrations.map(reg => {
+      if (!reg.userId) return null;
+      const u = reg.userId;
+
+      const solvedChallenges = [];
+      const solvedModules = [];
+
+      if (isPrivileged) {
+        // Solved challenges for THIS event only
+        if (Array.isArray(u.solves)) {
+          const seenChallIds = new Set();
+          u.solves.forEach(s => {
+            if (s.challengeId && s.challengeId.eventId && s.challengeId.eventId.toString() === event._id.toString()) {
+              const cId = s.challengeId._id.toString();
+              if (!seenChallIds.has(cId)) {
+                seenChallIds.add(cId);
+                solvedChallenges.push({
+                  _id: s.challengeId._id,
+                  title: s.challengeId.title,
+                  points: s.awardedPointsAtSolveTime || s.challengeId.points,
+                  category: s.challengeId.category,
+                  solvedAt: s.solvedAt
+                });
+              }
+            }
+          });
+        }
+
+        // Completed modules for THIS event only
+        const userProgressList = progressByUser[u._id.toString()] || [];
+        const seenModIds = new Set();
+        userProgressList.forEach(p => {
+          const mId = p.moduleId.toString();
+          if (!seenModIds.has(mId) && eventModulesMap[mId]) {
+            seenModIds.add(mId);
+            const m = eventModulesMap[mId];
+            solvedModules.push({
+              _id: m._id,
+              title: m.title,
+              points: m.points || 100,
+              icon: m.icon || '📘',
+              color: m.color || '#00f0ff',
+              completedAt: p.completedAt || p.updatedAt
+            });
+          }
+        });
+      }
+
+      const solvesCount = isModuleEvent ? solvedModules.length : solvedChallenges.length;
+
+      return {
+        _id: u._id,
+        username: u.username,
+        avatarUrl: u.avatarUrl,
+        teamName: reg.teamId ? reg.teamId.name : null,
+        registeredAt: reg.registeredAt,
+        ...(isPrivileged ? {
+          isModuleEvent,
+          solvesCount,
+          solvedChallenges,
+          solvedModules,
+          challengeSolvesCount: solvedChallenges.length,
+          moduleSolvesCount: solvedModules.length,
+          totalSolvesCount: solvedChallenges.length + solvedModules.length
+        } : {})
+      };
+    }).filter(Boolean);
 
     res.json(participants);
   } catch (err) {
+    console.error('Error fetching participants:', err);
     res.status(500).json({ message: 'Server error fetching participants' });
   }
 });
@@ -757,8 +872,8 @@ router.get('/:id/teams', protect, async (req, res) => {
     const event = await Event.findById(req.params.id);
     if (!event) return res.status(404).json({ message: 'Event not found' });
 
-    // Ensure the requester is either registered or an admin/supervisor
-    if (req.user.role === 'Member') {
+    // Ensure the requester can view this event
+    if (req.user.role === 'Member' && (event.status === 'draft' || event.status === 'hidden')) {
       const reg = await EventRegistration.findOne({ eventId: event._id, userId: req.user._id });
       if (!reg) return res.status(403).json({ message: 'Access denied' });
     }
@@ -830,57 +945,6 @@ router.post('/:id/team', protect, async (req, res) => {
   }
 });
 
-// ── GET /api/events/:id/participants ─────────────────────────────────────────
-router.get('/:id/participants', protect, async (req, res) => {
-  try {
-    const event = await Event.findById(req.params.id);
-    if (!event) return res.status(404).json({ message: 'Event not found' });
-
-    if (req.user.role === 'Member') {
-      const reg = await EventRegistration.findOne({ eventId: event._id, userId: req.user._id });
-      if (!reg) return res.status(403).json({ message: 'Access denied' });
-    }
-
-    const registrations = await EventRegistration.find({ eventId: event._id })
-      .populate('userId', 'username avatarUrl')
-      .populate('teamId', 'name')
-      .sort({ registeredAt: -1 });
-
-    const participants = registrations.map(reg => ({
-      _id: reg.userId._id,
-      username: reg.userId.username,
-      avatarUrl: reg.userId.avatarUrl,
-      teamName: reg.teamId ? reg.teamId.name : null,
-      registeredAt: reg.registeredAt
-    }));
-
-    res.json(participants);
-  } catch (err) {
-    res.status(500).json({ message: 'Server error fetching participants' });
-  }
-});
-
-// ── GET /api/events/:id/teams ──────────────────────────────────────────────
-router.get('/:id/teams', protect, async (req, res) => {
-  try {
-    const event = await Event.findById(req.params.id);
-    if (!event) return res.status(404).json({ message: 'Event not found' });
-
-    if (req.user.role === 'Member') {
-      const reg = await EventRegistration.findOne({ eventId: event._id, userId: req.user._id });
-      if (!reg) return res.status(403).json({ message: 'Access denied' });
-    }
-
-    const teams = await Team.find({ eventId: event._id })
-      .populate('captain', 'username avatarUrl')
-      .populate('members', 'username avatarUrl')
-      .sort({ points: -1, createdAt: -1 });
-
-    res.json(teams);
-  } catch (err) {
-    res.status(500).json({ message: 'Server error fetching teams' });
-  }
-});
 
 // ── POST /api/events/:id/notifications ───────────────────────────────────────
 // @desc    Post a notification specific to this event
@@ -942,6 +1006,31 @@ router.delete('/:id/notifications/:notifId', protect, async (req, res) => {
   } catch (error) {
     console.error('Error deleting event notification:', error);
     res.status(500).json({ message: 'Server error deleting notification' });
+  }
+});
+
+// ── POST /api/events/:id/backfill-solves ─────────────────────────────────────
+// @desc    Re-run solve/progress migration for an already-archived event.
+//          Fixes historical events that were archived before the correct migration
+//          logic (solve counts, legacyEventBonus) was in place.
+// @access  Private (Admin only)
+router.post('/:id/backfill-solves', protect, isAdmin, async (req, res) => {
+  try {
+    const event = await Event.findById(req.params.id);
+    if (!event) return res.status(404).json({ message: 'Event not found' });
+
+    if (event.status !== 'archived') {
+      return res.status(400).json({ message: 'Event must be archived before backfilling. End the event first.' });
+    }
+
+    await migrateEventContent(event);
+
+    res.json({
+      message: `Backfill complete for event "${event.title}". Solves and module progress have been re-synchronized to the global tabs.`
+    });
+  } catch (error) {
+    console.error('Error backfilling event solves:', error);
+    res.status(500).json({ message: 'Server error during backfill', error: error.message });
   }
 });
 

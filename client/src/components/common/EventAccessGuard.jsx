@@ -26,7 +26,7 @@ export default function EventAccessGuard({ children }) {
     );
   }
 
-  if (isAdminOrSupervisor) {
+  if (isAdminOrSupervisor || event.lifecycleStatus === 'past' || event.status === 'archived') {
     return children ? children : <Outlet />;
   }
 

@@ -1,9 +1,32 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, CheckCircle, BookOpen, Shield, Loader2, Info, Lightbulb, AlertTriangle, Download, ExternalLink, Send, Sparkles, Check, Play, Lock } from 'lucide-react';
 import '../../styles/pages/ModuleReader.css';
 import '../../styles/pages/ModuleContent.css';
 import { parseMarkdownToHTML } from '../../utils/editor/markdownParser';
+import { STATIC_MODULE_CONTENT } from '../../constants/moduleData';
+
+const normalizeModule = (m, modId) => {
+  if (!m) return null;
+  const rawPages = m.pages || m.sections || [];
+  const pages = rawPages.map((p, idx) => ({
+    ...p,
+    id: p.id || p._id || `s_${idx}`,
+    title: p.title || `Section ${idx + 1}`,
+    content: p.content !== undefined ? p.content : (p.markdown || ''),
+    type: p.type || 'theory',
+    questions: p.questions || [],
+    hints: p.hints || []
+  }));
+  return {
+    ...m,
+    _id: m._id || modId,
+    title: m.title || 'Module',
+    icon: m.icon || '📘',
+    color: m.color || '#00f0ff',
+    pages
+  };
+};
 
 const API = (import.meta.env.VITE_API_URL || "http://localhost:5000");
 const token = () => localStorage.getItem('token');
@@ -170,14 +193,26 @@ const InlineHint = ({ hint, isRevealed, onReveal, isLocked }) => {
   );
 };
 
-export default function ModuleReader() {
+function ModuleReaderContent() {
   const { moduleId, sectionIdx: sectionIdxParam } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const isChallengePage = sectionIdxParam === 'challenge';
   const pageIdx = isChallengePage ? null : (parseInt(sectionIdxParam, 10) || 0);
 
   const [mod, setMod] = useState(null);
+
+  const handleBack = useCallback(() => {
+    if (location.state?.returnTo) {
+      navigate(location.state.returnTo);
+    } else if (mod?.eventId) {
+      navigate(`/events/${mod.eventId}/arena/modules`);
+    } else {
+      navigate(`/modules${moduleId ? `?moduleId=${moduleId}` : ''}`);
+    }
+  }, [location.state, mod, moduleId, navigate]);
+
   const [loading, setLoading] = useState(true);
   const [completedSections, setCompletedSections] = useState(new Set());
   const [completedQuestions, setCompletedQuestions] = useState(new Set());
@@ -255,23 +290,53 @@ export default function ModuleReader() {
   }, [moduleId]);
 
   useEffect(() => {
+    let isMounted = true;
     const load = async () => {
       setLoading(true);
       try {
+        let loadedMod = null;
+
+        if (STATIC_MODULE_CONTENT && STATIC_MODULE_CONTENT[moduleId]) {
+          loadedMod = normalizeModule(STATIC_MODULE_CONTENT[moduleId], moduleId);
+          if (isMounted) setMod(loadedMod);
+        }
+
         const r = await fetch(`${API}/api/modules/${moduleId}`, {
           headers: { Authorization: `Bearer ${token()}` }
         });
         if (r.ok) {
           const found = await r.json();
-          setMod(found);
+          loadedMod = normalizeModule(found, moduleId);
+          if (isMounted) setMod(loadedMod);
+        } else if (!loadedMod) {
+          // If neither API nor static content has it, provide a styled fallback so it NEVER displays a blank screen
+          const fallbackMod = {
+            _id: moduleId,
+            id: moduleId,
+            title: `Core Training Module #${moduleId.substring(0, 8)}`,
+            icon: '🛡️',
+            color: '#00f0ff',
+            pages: [
+              {
+                id: 'section_0',
+                title: 'Module Overview',
+                content: `### Module Information\n\n**Module Identifier:** \`${moduleId}\`\n\nThis training module was recorded in the operative's completed mission profile.\n\n> [!INFO]\n> The interactive lab environment for this module is currently in archived/reference mode.`,
+                type: 'theory',
+                questions: [],
+                hints: []
+              }
+            ]
+          };
+          if (isMounted) setMod(fallbackMod);
         }
       } catch (err) {
         console.error('Error fetching module:', err);
       }
       await loadModuleProgress();
-      setLoading(false);
+      if (isMounted) setLoading(false);
     };
     load();
+    return () => { isMounted = false; };
   }, [moduleId, loadModuleProgress]);
 
   useEffect(() => {
@@ -405,9 +470,9 @@ export default function ModuleReader() {
         method: 'POST',
         headers: { Authorization: `Bearer ${token()}` }
       });
-      navigate(mod?.eventId ? `/events/${mod.eventId}/arena/modules` : `/modules?moduleId=${moduleId}`);
+      handleBack();
     } catch (_) {
-      navigate(mod?.eventId ? `/events/${mod.eventId}/arena/modules` : `/modules?moduleId=${moduleId}`);
+      handleBack();
     } finally {
       setSaving(false);
     }
@@ -454,13 +519,34 @@ export default function ModuleReader() {
   }, [revealedHints]);
 
   if (loading) return <div className="mr-loading"><Loader2 size={32} className="animate-spin" /> Loading Course Platform...</div>;
-  if (!mod) return <div className="mr-error">Module not found. <button onClick={() => navigate('/modules')}>Go back</button></div>;
+  if (!mod) {
+    return (
+      <div className="mr-error" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', background: '#0d0f14', color: '#fff' }}>
+        <h2 style={{ fontSize: '1.5rem', color: '#f87171' }}>Module Not Found</h2>
+        <p style={{ color: '#94a3b8' }}>The requested module is unavailable or has been archived.</p>
+        <button className="mr-btn mr-btn-primary" onClick={handleBack} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: '8px', background: '#00f0ff', color: '#000', fontWeight: 700, border: 'none', cursor: 'pointer' }}>
+          <ChevronLeft size={16} /> Return Back
+        </button>
+      </div>
+    );
+  }
+
+  // Get user role for privileged access
+  let isPrivileged = false;
+  try {
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      const u = JSON.parse(userStr);
+      isPrivileged = u.role === 'Admin' || u.role === 'Supervisor';
+    }
+  } catch (_) {}
 
   const totalPages = mod.pages ? mod.pages.length : 0;
   const hasChallenge = false;
   const totalNavItems = totalPages;
 
-  const activePage = !isChallengePage && mod.pages ? mod.pages[pageIdx] : null;
+  const validPageIdx = (pageIdx !== null && pageIdx >= 0 && pageIdx < totalPages) ? pageIdx : 0;
+  const activePage = !isChallengePage && mod.pages && mod.pages.length > 0 ? (mod.pages[validPageIdx] || mod.pages[0]) : null;
 
   const isModuleCompleted = mod.pages && mod.pages.length > 0 && mod.pages.every(p => completedSections.has(p.id));
 
@@ -468,13 +554,13 @@ export default function ModuleReader() {
   const isPageRead = (pid) => completedSections.has(pid);
 
   const firstUnreadIdx = mod.pages ? mod.pages.findIndex(p => !isPageRead(p.id)) : 0;
-  const maxAllowedIdx = firstUnreadIdx === -1 ? totalPages : firstUnreadIdx;
+  const maxAllowedIdx = isPrivileged ? totalPages : (firstUnreadIdx === -1 ? totalPages : firstUnreadIdx);
 
   return (
     <div className="mr-layout">
       {/* Top Navbar */}
       <header className="mr-topnav">
-        <button className="mr-back" onClick={() => navigate(mod?.eventId ? `/events/${mod.eventId}/arena/modules` : `/modules?moduleId=${moduleId}`)}>
+        <button className="mr-back" onClick={handleBack}>
           <div className="logo-img-wrapper">
             <img src="/Illustration.png" alt="Spectre Logo" className="logo-img" />
           </div>
@@ -528,7 +614,7 @@ export default function ModuleReader() {
                   className={`section-item ${isActive ? 'active' : ''} ${isDone ? 'done' : ''} ${isChall ? 'challenge-item' : ''}`}
                   onClick={() => {
                     if (isLocked) return;
-                    navigate(`/modules/${moduleId}/section/${idx}`);
+                    navigate(`/modules/${moduleId}/section/${idx}`, { state: location.state });
                   }}
                   disabled={isLocked}
                   style={{ 
@@ -560,7 +646,7 @@ export default function ModuleReader() {
                 className={`section-item challenge-item ${isChallengePage ? 'active' : ''} ${isModuleCompleted ? 'done' : ''}`}
                 onClick={() => {
                   if (totalPages > maxAllowedIdx) return;
-                  navigate(`/modules/${moduleId}/section/challenge`);
+                  navigate(`/modules/${moduleId}/section/challenge`, { state: location.state });
                 }}
                 disabled={totalPages > maxAllowedIdx}
                 style={{ 
@@ -961,7 +1047,7 @@ export default function ModuleReader() {
                   <button 
                     className="mr-btn mr-btn-outline" 
                     disabled={pageIdx === 0} 
-                    onClick={() => navigate(`/modules/${moduleId}/section/${pageIdx - 1}`)}
+                    onClick={() => navigate(`/modules/${moduleId}/section/${pageIdx - 1}`, { state: location.state })}
                   >
                     <ChevronLeft size={18} /> Previous Topic
                   </button>
@@ -995,7 +1081,7 @@ export default function ModuleReader() {
                           if (activePage.type !== 'challenge') {
                             saveSection(activePage.id);
                           }
-                          navigate(`/modules/${moduleId}/section/${pageIdx + 1}`);
+                          navigate(`/modules/${moduleId}/section/${pageIdx + 1}`, { state: location.state });
                         }}
                         style={{ 
                           background: (activePage.type === 'challenge' && !isPageRead(activePage.id)) ? '#334155' : mod.color, 
@@ -1014,7 +1100,7 @@ export default function ModuleReader() {
                           if (activePage.type !== 'challenge') {
                             saveSection(activePage.id);
                           }
-                          navigate(`/modules/${moduleId}/section/challenge`);
+                          navigate(`/modules/${moduleId}/section/challenge`, { state: location.state });
                         }}
                         style={{ 
                           background: (activePage.type === 'challenge' && !isPageRead(activePage.id)) ? '#334155' : '#a855f7', 
@@ -1023,24 +1109,18 @@ export default function ModuleReader() {
                         }}
                         disabled={activePage.type === 'challenge' && !isPageRead(activePage.id)}
                       >
-                        Unlock Final Lab <ChevronRight size={18} />
+                        Final Challenge <ChevronRight size={18} />
                       </button>
                     ) : (
                       <button 
-                        className="mr-btn mr-btn-complete" 
-                        onClick={async () => {
-                          if (activePage.type === 'challenge' && !isPageRead(activePage.id)) return;
+                        className="mr-btn mr-btn-primary" 
+                        onClick={() => {
                           if (activePage.type !== 'challenge') {
-                            await saveSection(activePage.id);
+                            saveSection(activePage.id);
                           }
                           handleFinishWithoutChallenge();
                         }}
-                        disabled={saving || (activePage.type === 'challenge' && !isPageRead(activePage.id))}
-                        style={{
-                          background: (activePage.type === 'challenge' && !isPageRead(activePage.id)) ? '#334155' : undefined,
-                          color: (activePage.type === 'challenge' && !isPageRead(activePage.id)) ? '#94a3b8' : undefined,
-                          cursor: (activePage.type === 'challenge' && !isPageRead(activePage.id)) ? 'not-allowed' : 'pointer'
-                        }}
+                        disabled={saving}
                       >
                         {saving ? 'Finishing...' : 'Finish Course'} <CheckCircle size={18} />
                       </button>
@@ -1182,7 +1262,7 @@ export default function ModuleReader() {
                 <footer className="mr-footer-nav" style={{ marginTop: '40px' }}>
                   <button 
                     className="mr-btn mr-btn-outline" 
-                    onClick={() => navigate(`/modules/${moduleId}/section/${totalPages - 1}`)}
+                    onClick={() => navigate(`/modules/${moduleId}/section/${totalPages - 1}`, { state: location.state })}
                   >
                     <ChevronLeft size={18} /> Previous Topic
                   </button>
@@ -1193,7 +1273,7 @@ export default function ModuleReader() {
                     {isModuleCompleted ? (
                       <button 
                         className="mr-btn mr-btn-primary" 
-                        onClick={() => navigate(mod?.eventId ? `/events/${mod.eventId}/arena/modules` : '/modules')}
+                        onClick={handleBack}
                         style={{ background: '#a855f7', color: '#fff' }}
                       >
                         Return to Syllabus <ChevronRight size={18} />
@@ -1201,7 +1281,7 @@ export default function ModuleReader() {
                     ) : (
                       <button 
                         className="mr-btn mr-btn-outline" 
-                        onClick={() => navigate(mod?.eventId ? `/events/${mod.eventId}/arena/modules` : '/modules')}
+                        onClick={handleBack}
                       >
                         Back to Courses
                       </button>
@@ -1215,5 +1295,66 @@ export default function ModuleReader() {
         </main>
       </div>
     </div>
+  );
+}
+
+class ModuleErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error('ModuleReader Error Boundary caught:', error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="mr-layout" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#0d0f14', color: '#fff' }}>
+          <header className="mr-topnav" style={{ height: '60px', background: '#12141a', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', padding: '0 24px' }}>
+            <button className="mr-back" onClick={() => window.history.back()} style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'none', border: 'none', cursor: 'pointer' }}>
+              <div className="logo-img-wrapper" style={{ width: '32px', height: '32px' }}>
+                <img src="/Illustration.png" alt="Spectre Logo" className="logo-img" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+              </div>
+              <span style={{ fontWeight: 900, color: '#fff', fontSize: '1.1rem', letterSpacing: '2px' }}>SPECTRE</span>
+              <ChevronLeft size={16} style={{ color: '#475569' }} />
+              <span style={{ color: '#94a3b8', fontSize: '0.9rem' }}>Module Reader</span>
+            </button>
+          </header>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px', textAlign: 'center', gap: '16px' }}>
+            <AlertTriangle size={48} color="#f87171" />
+            <h2 style={{ fontSize: '1.4rem', color: '#f87171', margin: 0 }}>Encountered Display Issue</h2>
+            <p style={{ color: '#94a3b8', maxWidth: '480px', margin: 0, fontSize: '0.9rem' }}>
+              {this.state.error?.message || 'There was a problem loading this module topic.'}
+            </p>
+            <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
+              <button 
+                onClick={() => { this.setState({ hasError: false }); window.location.reload(); }}
+                style={{ background: '#00f0ff', color: '#000', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}
+              >
+                Reload Module
+              </button>
+              <button 
+                onClick={() => window.history.back()}
+                style={{ background: 'transparent', color: '#94a3b8', border: '1px solid rgba(255,255,255,0.1)', padding: '10px 20px', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}
+              >
+                Go Back
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+export default function ModuleReader() {
+  return (
+    <ModuleErrorBoundary>
+      <ModuleReaderContent />
+    </ModuleErrorBoundary>
   );
 }

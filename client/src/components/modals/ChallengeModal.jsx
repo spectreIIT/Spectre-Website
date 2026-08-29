@@ -4,7 +4,7 @@ import { submitFlag, likeChallenge, fetchChallengeLeaderboard } from '../../serv
 import API_URL from '../../constants/api';
 import '../../styles/components/ChallengeModal.css';
 
-const ChallengeModal = ({ challenge: initialChallenge, onClose, onSolve, eventId }) => {
+const ChallengeModal = ({ challenge: initialChallenge, onClose, onSolve, eventId, readOnly = false }) => {
   const [challenge, setChallenge] = useState(initialChallenge);
   const [flag, setFlag] = useState('');
   const [status, setStatus] = useState({ type: '', message: '' });
@@ -372,74 +372,94 @@ const ChallengeModal = ({ challenge: initialChallenge, onClose, onSolve, eventId
             <div style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '20px' }}>
               <span style={{ color: '#94a3b8', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.5px' }}>SUBMIT SYSTEM FLAG</span>
               
-              <form onSubmit={handleSubmit} style={{ marginTop: '10px' }}>
-                <input 
-                  type="text" 
-                  value={flag}
-                  onChange={e => setFlag(e.target.value)}
-                  style={{
-                    width: '100%',
-                    backgroundColor: '#101217',
-                    border: '1px solid rgba(255,255,255,0.08)',
-                    borderRadius: '6px',
-                    padding: '10px',
-                    color: '#fff',
-                    outline: 'none',
-                    fontSize: '0.85rem',
-                    fontFamily: 'monospace',
-                    boxSizing: 'border-box'
-                  }}
-                />
-                
-                {/* Attempt warnings & limits */}
-                {challenge.maxAttempts > 0 && !challenge.isSolved && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: '#94a3b8', marginTop: '6px' }}>
-                    <span>Attempts: {attemptsSubmitted}/{challenge.maxAttempts}</span>
-                    <span style={{ color: remainingAttempts <= 2 ? '#ef4444' : '#94a3b8' }}>
-                      {remainingAttempts} left
-                    </span>
-                  </div>
-                )}
-
-                <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <button 
-                    type="submit" 
-                    style={{
-                      backgroundColor: '#ff7b1a',
-                      color: '#fff',
-                      border: 'none',
-                      padding: '10px',
-                      borderRadius: '6px',
-                      fontWeight: '700',
-                      fontSize: '0.8rem',
-                      cursor: 'pointer',
-                      transition: '0.2s',
-                      width: '100%',
-                      marginTop: '8px'
-                    }}
-                  >
-                    {challenge.isSolved ? 'Check Flag Again' : 'Submit Flag'}
-                  </button>
-                  
-                  {challenge.isSolved && !status.message && (
-                    <div style={{ backgroundColor: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', color: '#10b981', fontWeight: 'bold', fontSize: '0.8rem', padding: '8px', borderRadius: '6px', textAlign: 'center', marginTop: '8px' }}>
-                      ✓ SOLVED BY TEAM
-                    </div>
-                  )}
-
-                  {status.message && (
-                    <div style={{
-                      fontSize: '0.75rem',
-                      fontWeight: '700',
-                      textAlign: 'center',
-                      color: status.type === 'success' ? '#10b981' : '#ef4444',
-                      marginTop: '4px'
-                    }}>
-                      {status.message}
-                    </div>
-                  )}
+              {readOnly ? (
+                <div style={{
+                  backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                  border: '1px solid rgba(56, 189, 248, 0.25)',
+                  color: '#38bdf8',
+                  borderRadius: '8px',
+                  padding: '12px 14px',
+                  textAlign: 'center',
+                  fontSize: '0.8rem',
+                  fontWeight: '600',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  marginTop: '12px'
+                }}>
+                  <Info size={16} /> Reference View (Submission Disabled)
                 </div>
-              </form>
+              ) : (
+                <form onSubmit={handleSubmit} style={{ marginTop: '10px' }}>
+                  <input 
+                    type="text" 
+                    value={flag}
+                    onChange={e => setFlag(e.target.value)}
+                    style={{
+                      width: '100%',
+                      backgroundColor: '#101217',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      borderRadius: '6px',
+                      padding: '10px',
+                      color: '#fff',
+                      outline: 'none',
+                      fontSize: '0.85rem',
+                      fontFamily: 'monospace',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                  
+                  {/* Attempt warnings & limits */}
+                  {challenge.maxAttempts > 0 && !challenge.isSolved && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: '#94a3b8', marginTop: '6px' }}>
+                      <span>Attempts: {attemptsSubmitted}/{challenge.maxAttempts}</span>
+                      <span style={{ color: remainingAttempts <= 2 ? '#ef4444' : '#94a3b8' }}>
+                        {remainingAttempts} left
+                      </span>
+                    </div>
+                  )}
+
+                  <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <button 
+                      type="submit" 
+                      style={{
+                        backgroundColor: '#ff7b1a',
+                        color: '#fff',
+                        border: 'none',
+                        padding: '10px',
+                        borderRadius: '6px',
+                        fontWeight: '700',
+                        fontSize: '0.8rem',
+                        cursor: 'pointer',
+                        transition: '0.2s',
+                        width: '100%',
+                        marginTop: '8px'
+                      }}
+                    >
+                      {challenge.isSolved ? 'Check Flag Again' : 'Submit Flag'}
+                    </button>
+                    
+                    {challenge.isSolved && !status.message && (
+                      <div style={{ backgroundColor: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', color: '#10b981', fontWeight: 'bold', fontSize: '0.8rem', padding: '8px', borderRadius: '6px', textAlign: 'center', marginTop: '8px' }}>
+                        ✓ SOLVED BY TEAM
+                      </div>
+                    )}
+
+                    {status.message && (
+                      <div style={{
+                        fontSize: '0.75rem',
+                        fontWeight: '700',
+                        textAlign: 'center',
+                        color: status.type === 'success' ? '#10b981' : '#ef4444',
+                        marginTop: '4px'
+                      }}>
+                        {status.message}
+                      </div>
+                    )}
+                  </div>
+                </form>
+              )}
             </div>
 
             {/* 2. Challenge Stats */}

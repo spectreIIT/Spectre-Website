@@ -1,4 +1,5 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import ModuleProgress from '../models/ModuleProgress.js';
 import Module from '../models/Module.js';
 import ActivityLog, { toUTCMidnightFn } from '../models/ActivityLog.js';
@@ -128,6 +129,12 @@ router.get('/', protect, async (req, res) => {
         }
       }
 
+      // Add legacy event bonus so event completers see their full event points,
+      // not the halved global points, in the Modules tab.
+      if (prog?.legacyEventBonus) {
+        earnedPoints += prog.legacyEventBonus;
+      }
+
       if (mod.eventId && (isModuleDone || prog?.isCompleted)) {
         const scheduleDate = mod.scheduledFor ? new Date(mod.scheduledFor) : new Date(mod.createdAt);
         const completionDate = new Date(prog?.lastActivityAt || new Date());
@@ -227,7 +234,7 @@ router.get('/', protect, async (req, res) => {
 // ── GET /api/modules/:moduleId ───────────────────────────────────
 router.get('/:moduleId', protect, async (req, res) => {
   try {
-    if (!req.params.moduleId.match(/^[0-9a-fA-C]{24}$/)) {
+    if (!mongoose.Types.ObjectId.isValid(req.params.moduleId)) {
       return res.status(404).json({ message: 'Module not found' });
     }
 
